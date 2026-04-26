@@ -20,6 +20,7 @@ export interface Card {
     quest?: number;
     military?: number;
     race?: RaceSymbol;
+    placement?: string[]; // Region IDs where a unit can be placed
   };
   chainingSymbol?: string;
 }
@@ -50,7 +51,7 @@ export interface PlayerState {
   side: Side;
   coins: number;
   skills: SkillSymbol[];
-  races: Set<RaceSymbol>;
+  races: RaceSymbol[];
   cards: string[]; // Card IDs
 }
 
