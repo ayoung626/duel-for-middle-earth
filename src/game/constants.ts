@@ -1,4 +1,4 @@
-import { GameState, Region, Card } from './types';
+import { GameState, Region, Card, RaceTile, RaceSymbol, Landmark } from './types';
 
 export const REGIONS: Record<string, Region> = {
   LINDON: { id: 'LINDON', name: 'Lindon', units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
@@ -10,8 +10,40 @@ export const REGIONS: Record<string, Region> = {
   MORDOR: { id: 'MORDOR', name: 'Mordor', units: { FELLOWSHIP: 0, SAURON: 2 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
 };
 
+export const RACE_TILES: Record<string, RaceTile[]> = {
+  ENT: [
+    { id: 't-ent-1', race: 'ENT', name: 'Awakening', description: 'Grant an extra turn immediately.', effectType: 'IMMEDIATE' },
+    { id: 't-ent-2', race: 'ENT', name: 'Rage', description: 'Remove one enemy fortress from the map.', effectType: 'IMMEDIATE' },
+    { id: 't-ent-3', race: 'ENT', name: 'Conclave', description: 'Choose 3 times: Kill 1, Steal 1 Coin, or 1 Movement.', effectType: 'IMMEDIATE' },
+  ],
+  WIZARD: [
+    { id: 't-wiz-1', race: 'WIZARD', name: 'Guidance', description: 'Move 2 spaces on the Ring Track.', effectType: 'IMMEDIATE' },
+    { id: 't-wiz-2', race: 'WIZARD', name: 'Lore', description: 'Take 1 card from the discard pile.', effectType: 'IMMEDIATE' },
+    { id: 't-wiz-3', race: 'WIZARD', name: 'Summoning', description: 'Place 2 units (1 region or 1 each in two).', effectType: 'IMMEDIATE' },
+  ],
+  ELF: [
+    { id: 't-elf-1', race: 'ELF', name: 'Elegance', description: 'Extra turn when a Yellow card is taken.', effectType: 'PASSIVE' },
+    { id: 't-elf-2', race: 'ELF', name: 'Archery', description: 'Red card units can be placed in ANY region.', effectType: 'PASSIVE' },
+    { id: 't-elf-3', race: 'ELF', name: 'Wisdom', description: 'Universal wild skill symbol.', effectType: 'PASSIVE' },
+  ],
+  HUMAN: [
+    { id: 't-hum-1', race: 'HUMAN', name: 'Trade', description: 'Double coins gained from discarding.', effectType: 'PASSIVE' },
+    { id: 't-hum-2', race: 'HUMAN', name: 'Ambition', description: 'Move 1 Ring space when taking a Yellow card.', effectType: 'PASSIVE' },
+    { id: 't-hum-3', race: 'HUMAN', name: 'Valor', description: 'Add +1 unit to all Red cards.', effectType: 'PASSIVE' },
+  ],
+  DWARF: [
+    { id: 't-dwa-1', race: 'DWARF', name: 'Masonry', description: 'Extra turn after building a landmark.', effectType: 'PASSIVE' },
+    { id: 't-dwa-2', race: 'DWARF', name: 'Greed', description: 'Remove additional cost for multiple landmarks.', effectType: 'PASSIVE' },
+    { id: 't-dwa-3', race: 'DWARF', name: 'Industry', description: '2 movements when buying a Green card.', effectType: 'PASSIVE' },
+  ],
+  HOBBIT: [
+    { id: 't-hob-1', race: 'HOBBIT', name: 'Courage', description: 'Place 1 unit (any region) when buying a Blue card.', effectType: 'PASSIVE' },
+    { id: 't-hob-2', race: 'HOBBIT', name: 'Feast', description: 'Gain 3 coins when buying using a chain symbol.', effectType: 'PASSIVE' },
+    { id: 't-hob-3', race: 'EAGLE', name: 'Eagle Tile', description: 'Counts as an extra race for victory.', effectType: 'PASSIVE' },
+  ],
+};
+
 export const CHAPTER_1_CARDS: Card[] = [
-  // Grey (Skills) - 8 cards
   { id: 'c1-1', name: 'Courage', type: 'GREY', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { skills: ['COURAGE'] } },
   { id: 'c1-2', name: 'Courage', type: 'GREY', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { skills: ['COURAGE'] } },
   { id: 'c1-3', name: 'Strength', type: 'GREY', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { skills: ['STRENGTH'] } },
@@ -20,57 +52,108 @@ export const CHAPTER_1_CARDS: Card[] = [
   { id: 'c1-6', name: 'Ruse', type: 'GREY', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { skills: ['RUSE'] } },
   { id: 'c1-7', name: 'Leadership', type: 'GREY', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { skills: ['LEADERSHIP'] } },
   { id: 'c1-8', name: 'Knowledge', type: 'GREY', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { skills: ['KNOWLEDGE'] } },
-
-  // Yellow (Coins) - 4 cards
   { id: 'c1-9', name: 'Gold', type: 'YELLOW', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { coins: 2 } },
   { id: 'c1-10', name: 'Gold', type: 'YELLOW', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { coins: 2 } },
   { id: 'c1-11', name: 'Gold', type: 'YELLOW', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { coins: 2 } },
   { id: 'c1-12', name: 'Gold', type: 'YELLOW', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { coins: 2 } },
-
-  // Red (Military) - 3 cards
   { id: 'c1-13', name: 'Lindon/Arnor', type: 'RED', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { placement: ['LINDON', 'ARNOR'] }, chainingSymbol: 'DAGGER' },
   { id: 'c1-14', name: 'Gondor/Rohan', type: 'RED', chapter: 1, cost: { coins: 0, skills: ['RUSE'] }, bonus: { placement: ['GONDOR', 'ROHAN'] }, chainingSymbol: 'BOW' },
   { id: 'c1-15', name: 'Enedwaith/Rhovanion', type: 'RED', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { placement: ['ENEDWAITH', 'RHOVANION'] }, chainingSymbol: 'HELMET' },
-
-  // Blue (Quest) - 4 cards
   { id: 'c1-16', name: 'Quest', type: 'BLUE', chapter: 1, cost: { coins: 0, skills: [] }, bonus: { quest: 1 } },
   { id: 'c1-17', name: 'Quest', type: 'BLUE', chapter: 1, cost: { coins: 0, skills: ['STRENGTH'] }, bonus: { quest: 1 }, chainingSymbol: 'HORSE' },
   { id: 'c1-18', name: 'Quest', type: 'BLUE', chapter: 1, cost: { coins: 0, skills: ['COURAGE'] }, bonus: { quest: 1 }, chainingSymbol: 'BACKPACK' },
   { id: 'c1-19', name: 'Quest', type: 'BLUE', chapter: 1, cost: { coins: 1, skills: [] }, bonus: { quest: 1 }, chainingSymbol: 'FISH' },
-
-  // Green (Race) - 4 cards
   { id: 'c1-20', name: 'Dwarf', type: 'GREEN', chapter: 1, cost: { coins: 0, skills: ['LEADERSHIP'] }, bonus: { race: 'DWARF' }, chainingSymbol: 'ANVIL' },
   { id: 'c1-21', name: 'Elf', type: 'GREEN', chapter: 1, cost: { coins: 0, skills: ['KNOWLEDGE'] }, bonus: { race: 'ELF' }, chainingSymbol: 'HARP' },
   { id: 'c1-22', name: 'Hobbit', type: 'GREEN', chapter: 1, cost: { coins: 0, skills: ['LEADERSHIP'] }, bonus: { race: 'HOBBIT' }, chainingSymbol: 'POT' },
   { id: 'c1-23', name: 'Human', type: 'GREEN', chapter: 1, cost: { coins: 0, skills: ['KNOWLEDGE'] }, bonus: { race: 'HUMAN' }, chainingSymbol: 'HORSESHOE' },
 ];
 
+export const CHAPTER_2_CARDS: Card[] = [
+  { id: 'c2-1', name: 'Leadership', type: 'GREY', chapter: 2, cost: { coins: 0, skills: [] }, bonus: { skills: ['LEADERSHIP'] } },
+  { id: 'c2-2', name: 'Knowledge', type: 'GREY', chapter: 2, cost: { coins: 0, skills: [] }, bonus: { skills: ['KNOWLEDGE'] } },
+  { id: 'c2-3', name: 'Courage x2', type: 'GREY', chapter: 2, cost: { coins: 1, skills: [] }, bonus: { skills: ['COURAGE', 'COURAGE'] } },
+  { id: 'c2-4', name: 'Ruse x2', type: 'GREY', chapter: 2, cost: { coins: 1, skills: [] }, bonus: { skills: ['RUSE', 'RUSE'] } },
+  { id: 'c2-5', name: 'Strength x2', type: 'GREY', chapter: 2, cost: { coins: 1, skills: [] }, bonus: { skills: ['STRENGTH', 'STRENGTH'] } },
+  { id: 'c2-6', name: 'Wild Ruse/Strength/Courage', type: 'GREY', chapter: 2, cost: { coins: 1, skills: ['KNOWLEDGE', 'LEADERSHIP'] }, bonus: { wildSkills: [['RUSE', 'STRENGTH', 'COURAGE']] } },
+  { id: 'c2-7', name: 'Wild Knowledge/Leadership', type: 'GREY', chapter: 2, cost: { coins: 1, skills: ['RUSE'] }, bonus: { wildSkills: [['KNOWLEDGE', 'LEADERSHIP']] } },
+  { id: 'c2-8', name: 'Hobbit', type: 'GREEN', chapter: 2, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'LEADERSHIP'] }, chainsFrom: 'POT', bonus: { race: 'HOBBIT' }, chainingSymbol: 'ACORN' },
+  { id: 'c2-9', name: 'Human', type: 'GREEN', chapter: 2, cost: { coins: 0, skills: ['COURAGE', 'COURAGE', 'KNOWLEDGE'] }, chainsFrom: 'HORSESHOE', bonus: { race: 'HUMAN' }, chainingSymbol: 'SCROLL' },
+  { id: 'c2-10', name: 'Dwarf', type: 'GREEN', chapter: 2, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'LEADERSHIP'] }, chainsFrom: 'ANVIL', bonus: { race: 'DWARF' } },
+  { id: 'c2-11', name: 'Elf', type: 'GREEN', chapter: 2, cost: { coins: 0, skills: ['COURAGE', 'LEADERSHIP', 'KNOWLEDGE'] }, chainsFrom: 'HARP', bonus: { race: 'ELF' } },
+  { id: 'c2-12', name: 'Gold', type: 'YELLOW', chapter: 2, cost: { coins: 0, skills: [] }, bonus: { coins: 4 } },
+  { id: 'c2-13', name: 'Gold', type: 'YELLOW', chapter: 2, cost: { coins: 0, skills: [] }, bonus: { coins: 3 }, chainingSymbol: 'CHEST' },
+  { id: 'c2-14', name: 'Quest', type: 'BLUE', chapter: 2, cost: { coins: 0, skills: ['RUSE', 'STRENGTH'] }, bonus: { quest: 1 } },
+  { id: 'c2-15', name: 'Quest', type: 'BLUE', chapter: 2, cost: { coins: 0, skills: ['COURAGE', 'STRENGTH'] }, chainsFrom: 'HORSE', bonus: { quest: 1 } },
+  { id: 'c2-16', name: 'Quest', type: 'BLUE', chapter: 2, cost: { coins: 1, skills: [] }, chainsFrom: 'BACKPACK', bonus: { quest: 1 } },
+  { id: 'c2-17', name: 'Quest', type: 'BLUE', chapter: 2, cost: { coins: 0, skills: ['STRENGTH', 'COURAGE', 'COURAGE'] }, bonus: { quest: 2 }, chainingSymbol: 'FIRE' },
+  { id: 'c2-18', name: 'Quest', type: 'BLUE', chapter: 2, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'KNOWLEDGE'] }, bonus: { quest: 2 }, chainingSymbol: 'SLEEPING_BAG' },
+  { id: 'c2-19', name: 'Gondor/Mordor', type: 'RED', chapter: 2, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'RUSE'] }, chainsFrom: 'BOW', bonus: { placement: ['GONDOR', 'MORDOR'], placementCount: 2 } },
+  { id: 'c2-20', name: 'Lindon/Rohan', type: 'RED', chapter: 2, cost: { coins: 0, skills: ['RUSE', 'COURAGE', 'STRENGTH'] }, bonus: { placement: ['LINDON', 'ROHAN'], placementCount: 2 } },
+  { id: 'c2-21', name: 'Lindon/Enedwaith', type: 'RED', chapter: 2, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'COURAGE'] }, chainsFrom: 'HELMET', bonus: { placement: ['LINDON', 'ENEDWAITH'], placementCount: 2 }, chainingSymbol: 'ARMOR' },
+  { id: 'c2-22', name: 'Arnor/Rhovanion', type: 'RED', chapter: 2, cost: { coins: 0, skills: ['COURAGE', 'COURAGE', 'LEADERSHIP'] }, bonus: { placement: ['ARNOR', 'RHOVANION'], placementCount: 2 } },
+  { id: 'c2-23', name: 'Mordor/Rohan', type: 'RED', chapter: 2, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'KNOWLEDGE'] }, chainsFrom: 'DAGGER', bonus: { placement: ['MORDOR', 'ROHAN'], placementCount: 2 }, chainingSymbol: 'AXE' },
+];
+
+export const CHAPTER_3_CARDS: Card[] = [
+  { id: 'c3-1', name: 'Move 3', type: 'PURPLE', chapter: 3, cost: { coins: 0, skills: ['COURAGE', 'COURAGE', 'LEADERSHIP', 'KNOWLEDGE'] }, bonus: { movements: 3 } },
+  { id: 'c3-2', name: 'Kill 1 / Steal 2', type: 'PURPLE', chapter: 3, cost: { coins: 0, skills: ['COURAGE', 'COURAGE', 'COURAGE', 'LEADERSHIP'] }, bonus: { removeEnemyUnits: 1, removeEnemyCoins: 2 } },
+  { id: 'c3-3', name: 'Kill 1 / Steal 1 / Move 1', type: 'PURPLE', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'LEADERSHIP'] }, bonus: { removeEnemyUnits: 1, removeEnemyCoins: 1, movements: 1 } },
+  { id: 'c3-4', name: 'Kill 2 / Steal 1', type: 'PURPLE', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'COURAGE', 'KNOWLEDGE', 'KNOWLEDGE'] }, bonus: { removeEnemyUnits: 2, removeEnemyCoins: 1 } },
+  { id: 'c3-5', name: 'Steal 1 / Move 2', type: 'PURPLE', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'STRENGTH', 'COURAGE', 'KNOWLEDGE'] }, bonus: { removeEnemyCoins: 1, movements: 2 } },
+  { id: 'c3-6', name: 'Kill 1 / Move 2', type: 'PURPLE', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'STRENGTH', 'KNOWLEDGE'] }, bonus: { removeEnemyUnits: 1, movements: 2 } },
+  { id: 'c3-7', name: 'Gold', type: 'YELLOW', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'COURAGE'] }, chainsFrom: 'CHEST', bonus: { coins: 5 } },
+  { id: 'c3-8', name: 'Gold', type: 'YELLOW', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'LEADERSHIP', 'KNOWLEDGE'] }, bonus: { coins: 5 } },
+  { id: 'c3-9', name: 'Quest 2', type: 'BLUE', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'LEADERSHIP'] }, bonus: { quest: 2 } },
+  { id: 'c3-10', name: 'Quest 2', type: 'BLUE', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'COURAGE', 'COURAGE'] }, chainsFrom: 'FISH', bonus: { quest: 2 } },
+  { id: 'c3-11', name: 'Quest 2', type: 'BLUE', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'RUSE', 'COURAGE'] }, chainsFrom: 'SLEEPING_BAG', bonus: { quest: 2 } },
+  { id: 'c3-12', name: 'Quest 2', type: 'BLUE', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'STRENGTH', 'STRENGTH', 'STRENGTH'] }, chainsFrom: 'FIRE', bonus: { quest: 2 } },
+  { id: 'c3-13', name: 'Quest 3', type: 'BLUE', chapter: 3, cost: { coins: 3, skills: [] }, bonus: { quest: 3 } },
+  { id: 'c3-14', name: 'Wizard', type: 'GREEN', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'LEADERSHIP', 'KNOWLEDGE'] }, bonus: { race: 'WIZARD' } },
+  { id: 'c3-15', name: 'Wizard', type: 'GREEN', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'LEADERSHIP', 'LEADERSHIP'] }, chainsFrom: 'SCROLL', bonus: { race: 'WIZARD' } },
+  { id: 'c3-16', name: 'Ent', type: 'GREEN', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'KNOWLEDGE', 'KNOWLEDGE'] }, chainsFrom: 'ACORN', bonus: { race: 'ENT' } },
+  { id: 'c3-17', name: 'Ent', type: 'GREEN', chapter: 3, cost: { coins: 0, skills: ['COURAGE', 'COURAGE', 'LEADERSHIP', 'KNOWLEDGE'] }, bonus: { race: 'ENT' } },
+  { id: 'c3-18', name: 'Enedwaith/Rohan', type: 'RED', chapter: 3, cost: { coins: 0, skills: ['STRENGTH', 'STRENGTH', 'COURAGE', 'COURAGE'] }, chainsFrom: 'ARMOR', bonus: { placement: ['ENEDWAITH', 'ROHAN'], placementCount: 3 } },
+  { id: 'c3-19', name: 'Enedwaith/Arnor', type: 'RED', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'COURAGE', 'COURAGE'] }, bonus: { placement: ['ENEDWAITH', 'ARNOR'], placementCount: 3 } },
+  { id: 'c3-20', name: 'Rhovanion/Gondor', type: 'RED', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'RUSE', 'LEADERSHIP', 'LEADERSHIP'] }, bonus: { placement: ['RHOVANION', 'GONDOR'], placementCount: 3 } },
+  { id: 'c3-21', name: 'Gondor/Arnor', type: 'RED', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'STRENGTH', 'LEADERSHIP', 'LEADERSHIP', 'KNOWLEDGE'] }, chainsFrom: 'AXE', bonus: { placement: ['GONDOR', 'ARNOR'], placementCount: 3 } },
+  { id: 'c3-22', name: 'Lindon/Mordor', type: 'RED', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'RUSE', 'COURAGE', 'KNOWLEDGE', 'KNOWLEDGE'] }, bonus: { placement: ['LINDON', 'MORDOR'], placementCount: 3 } },
+  { id: 'c3-23', name: 'Rhovanion/Mordor', type: 'RED', chapter: 3, cost: { coins: 0, skills: ['RUSE', 'STRENGTH', 'STRENGTH', 'COURAGE', 'COURAGE'] }, bonus: { placement: ['RHOVANION', 'MORDOR'], placementCount: 3 } },
+];
+
+export const ALL_LANDMARKS: Landmark[] = [
+  { id: 'l-barad-dur', name: 'Barad-Dûr', regionId: 'MORDOR', cost: ['COURAGE', 'COURAGE', 'COURAGE', 'LEADERSHIP', 'LEADERSHIP', 'KNOWLEDGE'], builtBy: null, description: 'Place Fortress in Mordor + Take 1 card from discard pile.' },
+  { id: 'l-minas-tirith', name: 'Minas Tirith', regionId: 'GONDOR', cost: ['RUSE', 'RUSE', 'RUSE', 'STRENGTH', 'KNOWLEDGE', 'KNOWLEDGE'], builtBy: null, description: 'Place Fortress & 1 Unit in Gondor + 2 movements on Ring Track.' },
+  { id: 'l-erebor', name: 'Erebor', regionId: 'RHOVANION', cost: ['RUSE', 'STRENGTH', 'STRENGTH', 'COURAGE', 'LEADERSHIP', 'KNOWLEDGE'], builtBy: null, description: 'Place Fortress in Rhovanion + 5 Coins + 1 troop movement.' },
+  { id: 'l-isengard', name: 'Isengard', regionId: 'ENEDWAITH', cost: ['RUSE', 'RUSE', 'COURAGE', 'COURAGE', 'COURAGE', 'KNOWLEDGE'], builtBy: null, description: 'Place Fortress in Enedwaith + Remove 1 opponent Grey card + 1 Ring movement.' },
+  { id: 'l-helms-deep', name: 'Helm\'s Deep', regionId: 'ROHAN', cost: ['RUSE', 'RUSE', 'RUSE', 'LEADERSHIP', 'LEADERSHIP', 'KNOWLEDGE'], builtBy: null, description: 'Place Fortress & 3 Units in Rohan.' },
+  { id: 'l-bree', name: 'Bree', regionId: 'ARNOR', cost: ['STRENGTH', 'STRENGTH', 'STRENGTH', 'COURAGE', 'COURAGE', 'LEADERSHIP'], builtBy: null, description: 'Place Fortress & 2 Units in Arnor + 2 troop movements.' },
+  { id: 'l-grey-havens', name: 'Grey Havens', regionId: 'LINDON', cost: ['STRENGTH', 'STRENGTH', 'STRENGTH', 'LEADERSHIP', 'LEADERSHIP', 'KNOWLEDGE'], builtBy: null, description: 'Place Fortress in Lindon + Pick 1 of top 2 race tiles.' },
+];
+
 export const INITIAL_STATE: GameState = {
-  questTrack: {
-    fellowship: 0,
-    sauron: 0,
-  },
+  questTrack: { fellowship: 0, sauron: 0 },
   map: REGIONS,
   players: {
-    FELLOWSHIP: {
-      side: 'FELLOWSHIP',
-      coins: 3,
-      skills: [],
-      races: [],
-      cards: [],
-    },
-    SAURON: {
-      side: 'SAURON',
-      coins: 2,
-      skills: [],
-      races: [],
-      cards: [],
-    },
+    FELLOWSHIP: { side: 'FELLOWSHIP', coins: 3, skills: [], wildSkills: [], races: [], cards: [], builtLandmarks: [], tiles: [] },
+    SAURON: { side: 'SAURON', coins: 2, skills: [], wildSkills: [], races: [], cards: [], builtLandmarks: [], tiles: [] },
   },
   currentChapter: 1,
   pyramid: [],
   cardPool: {},
+  discardPile: [],
   landmarks: [],
+  availableLandmarks: [],
+  raceTiles: { ...RACE_TILES } as Record<RaceSymbol, RaceTile[]>,
   log: ['Game started'],
+  pendingPlacement: null,
+  pendingPlacementCount: 0,
+  pendingRemovalCount: 0,
+  pendingMovementsCount: 0,
+  pendingDiscardTake: false,
+  pendingRacePick: null,
+  pendingRaceSelectionPool: [],
+  pendingGreyRemoval: false,
+  entChoicesCount: 0,
+  extraTurn: false,
 };
-

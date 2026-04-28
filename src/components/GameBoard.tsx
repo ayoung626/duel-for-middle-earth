@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GameState } from '@/game/types';
+import { GameState, RaceSymbol, SkillSymbol, Side, Landmark, Card } from '@/game/types';
 import { clsx } from 'clsx';
-import { calculateCardCost } from '@/game/Game';
+import { calculateCardCost, isCardAvailable, canAffordLandmark, calculateLandmarkCost } from '@/game/Game';
+import { TowerControl as Tower, Castle, Coins, Shield, Sword, Anchor, Mountain, Map, Trees, Skull } from 'lucide-react';
 
 interface GameBoardProps {
   G: GameState;
@@ -11,19 +12,6 @@ interface GameBoardProps {
   moves: any;
   playerID: string | null;
 }
-
-const isCardAvailable = (pyramid: GameState['pyramid'], rowIndex: number, colIndex: number) => {
-    const nextRow = pyramid[rowIndex + 1];
-    if (!nextRow) return true;
-    
-    // In a standard pyramid layout (2 -> 3 -> 4 -> 5 -> 6):
-    // Card(0, i) is covered by (1, i) and (1, i+1)
-    const covers = [];
-    if (nextRow[colIndex]) covers.push(nextRow[colIndex]);
-    if (nextRow[colIndex + 1]) covers.push(nextRow[colIndex + 1]);
-    
-    return !covers.some(c => c.cardId !== null);
-};
 
 const getCardColorClass = (type: string) => {
   switch (type) {
@@ -37,252 +25,340 @@ const getCardColorClass = (type: string) => {
   }
 };
 
-export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves, playerID }) => {
-  const currentPlayer = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
+const getRegionIcon = (regionId: string) => {
+  switch(regionId) {
+    case 'LINDON': return <Anchor size={12} />;
+    case 'ARNOR': return <Map size={12} />;
+    case 'ENEDWAITH': return <Trees size={12} />;
+    case 'GONDOR': return <Castle size={12} />;
+    case 'ROHAN': return <Sword size={12} />;
+    case 'RHOVANION': return <Mountain size={12} />;
+    case 'MORDOR': return <Skull size={12} />;
+    default: return <Shield size={12} />;
+  }
+}
+
+export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
+  const currentPlayerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
+  const enemySide = currentPlayerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
+
   const [selectedCard, setSelectedCard] = useState<{rowIndex: number, colIndex: number, cardId: string} | null>(null);
+  const [selectedLandmark, setSelectedLandmark] = useState<Landmark | null>(null);
+  const [moveSourceRegionId, setMoveSourceRegionId] = useState<string | null>(null);
+
+  const selectedFullCard = selectedCard ? G.cardPool[selectedCard.cardId] : null;
+  const currentCost = selectedFullCard ? calculateCardCost(selectedFullCard, G.players[currentPlayerSide], G.cardPool) : 0;
+  const canAffordCard = selectedFullCard ? G.players[currentPlayerSide].coins >= currentCost : false;
+
+  const isPendingPlacement = G.pendingPlacement !== null;
+  const isPendingRemoval = G.pendingRemovalCount > 0;
+  const isPendingMovement = G.pendingMovementsCount > 0;
+  const hasAnyPending = isPendingPlacement || isPendingRemoval || isPendingMovement || G.pendingRacePick !== null || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
 
   const handleCardClick = (rowIndex: number, colIndex: number, cardId: string, available: boolean) => {
-    if (available) {
-      setSelectedCard({ rowIndex, colIndex, cardId });
+    if (hasAnyPending) return;
+    if (available) setSelectedCard({ rowIndex, colIndex, cardId });
+  };
+
+  const handleRegionClick = (regionId: string) => {
+    if (isPendingPlacement && G.pendingPlacement!.includes(regionId)) {
+      moves.placeUnit(regionId);
+    } else if (isPendingRemoval) {
+      if (G.map[regionId].units[enemySide] > 0) moves.removeUnit({ regionId, side: enemySide });
+    } else if (isPendingMovement) {
+      if (!moveSourceRegionId) {
+        if (G.map[regionId].units[currentPlayerSide] > 0) setMoveSourceRegionId(regionId);
+      } else {
+        if (regionId === moveSourceRegionId) setMoveSourceRegionId(null);
+        else { moves.moveUnit({ fromRegionId: moveSourceRegionId, toRegionId: regionId }); setMoveSourceRegionId(null); }
+      }
     }
   };
 
-  const handleTake = () => {
-    if (selectedCard) {
-      moves.takeCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex });
-      setSelectedCard(null);
-    }
-  };
+  const renderPlayerPanel = (side: Side) => {
+    const p = G.players[side];
+    const skills: Record<SkillSymbol, number> = { RUSE: 0, COURAGE: 0, STRENGTH: 0, KNOWLEDGE: 0, LEADERSHIP: 0 };
+    p.skills.forEach(s => skills[s]++);
+    const chains = Array.from(new Set(p.cards.map(cId => G.cardPool[cId]?.chainingSymbol).filter(Boolean)));
+    const isActive = currentPlayerSide === side;
 
-  const handleDiscard = () => {
-    if (selectedCard) {
-      moves.discardCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex });
-      setSelectedCard(null);
-    }
-  };
-
-  const renderCardDetails = (cardId: string) => {
-    const card = G.cardPool[cardId];
-    if (!card) return null;
     return (
-      <div className="flex flex-col items-center justify-center w-full h-full p-1">
-        <div className="text-[10px] uppercase font-bold opacity-80 mb-1">{card.name}</div>
-        
-        {/* Cost */}
-        {(card.cost.coins > 0 || card.cost.skills.length > 0) && (
-          <div className="flex gap-1 mb-2 bg-black/20 p-1 rounded-sm w-full justify-center flex-wrap">
-            {card.cost.coins > 0 && <span className="text-[10px] bg-yellow-500 text-yellow-950 px-1 rounded-sm font-bold">{card.cost.coins}C</span>}
-            {card.cost.skills.map((s, i) => <span key={i} className="text-[8px] bg-stone-300 text-stone-900 px-1 rounded-sm font-bold">{s.substring(0,3)}</span>)}
-          </div>
-        )}
+      <div className={clsx(
+        "p-3 rounded-xl border-2 w-64 shadow-xl transition-all flex flex-col gap-2",
+        side === 'FELLOWSHIP' ? "bg-yellow-950/20 border-yellow-700/50" : "bg-red-950/20 border-red-900/50",
+        isActive ? "ring-2 ring-white/20 scale-105" : "opacity-60"
+      )}>
+        <div className="flex justify-between items-center">
+           <h2 className={clsx("font-black tracking-widest text-sm", side === 'FELLOWSHIP' ? "text-yellow-500" : "text-red-600")}>{side}</h2>
+           <div className="flex items-center gap-1 text-lg font-mono font-bold">
+              <Coins className="text-yellow-500" size={16} />
+              {p.coins}
+           </div>
+        </div>
 
-        {/* Bonus */}
-        <div className="flex gap-1 flex-wrap justify-center mt-auto">
-          {card.bonus?.coins ? <span className="text-[10px] bg-yellow-400 text-yellow-950 px-1 rounded-sm font-bold">+{card.bonus.coins}C</span> : null}
-          {card.bonus?.skills?.map((s, i) => <span key={i} className="text-[8px] bg-stone-200 text-stone-800 px-1 rounded-sm font-bold">+{s.substring(0,3)}</span>)}
-          {card.bonus?.quest ? <span className="text-[10px] bg-blue-400 text-blue-950 px-1 rounded-sm font-bold">+{card.bonus.quest} Q</span> : null}
-          {card.bonus?.race ? <span className="text-[10px] bg-green-400 text-green-950 px-1 rounded-sm font-bold">{card.bonus.race}</span> : null}
-          {card.bonus?.placement ? <span className="text-[8px] bg-red-400 text-red-950 px-1 rounded-sm font-bold leading-tight">PLACE</span> : null}
+        <div className="grid grid-cols-5 gap-0.5">
+           {Object.entries(skills).map(([s, count]) => (
+             <div key={s} className="bg-black/40 rounded flex flex-col items-center py-0.5 border border-stone-700/50">
+                <span className="text-[6px] uppercase text-stone-500 font-bold">{s.substring(0,1)}</span>
+                <span className="text-[10px] font-bold text-stone-100">{count}</span>
+             </div>
+           ))}
+        </div>
+
+        <div className="bg-black/30 p-1 rounded-lg border border-stone-800 min-h-8 flex flex-wrap gap-1 content-start">
+           {chains.map(c => (
+             <span key={c} className="bg-stone-700 text-[6px] px-1 py-0.5 rounded text-stone-200 border border-stone-600 uppercase font-black">{c ? c.substring(0,3) : ''}</span>
+           ))}
+        </div>
+
+        <div className="flex flex-wrap gap-1 min-h-4">
+           {p.tiles.map(tId => (
+             <span key={tId} className="bg-green-900 text-[6px] px-1.5 rounded-full font-bold uppercase text-green-100 border border-green-600">
+               {tId.split('-').pop()}
+             </span>
+           ))}
         </div>
       </div>
     );
   };
 
-  const selectedFullCard = selectedCard ? G.cardPool[selectedCard.cardId] : null;
-  const currentCost = selectedFullCard ? calculateCardCost(selectedFullCard, G.players[currentPlayer].skills) : 0;
-  const canAfford = selectedFullCard ? G.players[currentPlayer].coins >= currentCost : false;
-
   return (
-    <div className="min-h-screen bg-stone-900 text-stone-100 p-4 flex flex-col gap-4 font-serif select-none">
-      {/* Header Info */}
-      <div className="flex justify-between items-center bg-stone-800 p-4 rounded-lg border border-stone-700 shadow-xl">
-        <div className="flex gap-8">
-          <div className={clsx("p-2 rounded transition-all", currentPlayer === 'FELLOWSHIP' ? 'bg-yellow-900/30 border border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'opacity-50')}>
-            <h2 className="text-yellow-500 font-bold">FELLOWSHIP</h2>
-            <p className="text-xl font-mono">{G.players.FELLOWSHIP.coins} <span className="text-xs font-serif">coins</span></p>
-          </div>
-          <div className={clsx("p-2 rounded transition-all", currentPlayer === 'SAURON' ? 'bg-red-900/30 border border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.2)]' : 'opacity-50')}>
-            <h2 className="text-red-500 font-bold">SAURON</h2>
-            <p className="text-xl font-mono">{G.players.SAURON.coins} <span className="text-xs font-serif">coins</span></p>
-          </div>
-        </div>
-        <div className="text-center">
-          <h1 className="text-2xl font-bold tracking-[0.2em] text-stone-300">DUEL FOR MIDDLE-EARTH</h1>
-          <p className="text-xs text-stone-500 uppercase tracking-widest mt-1">Chapter {G.currentChapter}</p>
-        </div>
-        <div className="text-right text-stone-400">
-          <p className="text-xs uppercase">Turn {ctx.turn}</p>
-          {ctx.gameover ? (
-            <div className="text-right">
-              <p className="text-sm font-bold text-yellow-500 uppercase">{ctx.gameover.winner} WINS!</p>
-              <p className="text-[10px] text-stone-400 uppercase tracking-widest">{ctx.gameover.reason}</p>
+    <div className="h-screen bg-stone-900 text-stone-100 p-2 flex flex-col gap-2 font-serif select-none overflow-hidden relative">
+      
+      {/* Horizontal Quest Track */}
+      <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700 flex flex-col items-center shadow-lg shrink-0">
+        <h3 className="text-[8px] font-bold mb-1 text-stone-500 uppercase tracking-[0.2em]">Quest of the Ring</h3>
+        <div className="flex justify-between w-full max-w-4xl px-8 relative h-3 items-center bg-stone-950/50 rounded-full border border-stone-700/50">
+          {[...Array(13)].map((_, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center relative h-full justify-center">
+              <div className="w-0.5 h-1.5 bg-stone-700 rounded-full" />
+              <span className={clsx("text-[7px] absolute -bottom-3 font-mono", (i === 12) ? "text-yellow-500 font-bold" : "text-stone-600")}>{i}</span>
+              {G.questTrack.fellowship === i && (
+                 <div className="absolute -top-1 w-5 h-5 bg-yellow-500 rounded-full z-20 flex items-center justify-center text-stone-950 font-black text-[9px] shadow-lg border border-stone-900">F</div>
+              )}
+              {G.questTrack.sauron === i && (
+                 <div className="absolute -top-1 w-5 h-5 bg-red-600 rounded-full z-10 flex items-center justify-center text-white font-black text-[9px] shadow-lg border border-stone-900">S</div>
+              )}
             </div>
-          ) : (
-            <p className="text-sm font-bold text-green-600">In Progress</p>
-          )}
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 flex-1">
-        {/* Left Sidebar - Quest Track */}
-        <div className="col-span-2 bg-stone-800 rounded-lg border border-stone-700 p-4 flex flex-col items-center shadow-inner">
-          <h3 className="text-[10px] font-bold mb-4 text-stone-500 uppercase tracking-widest">Quest of the Ring</h3>
-          <div 
-            className="relative h-full w-12 bg-stone-950 rounded-full border border-stone-700 flex flex-col justify-between py-6 items-center shadow-2xl cursor-pointer hover:border-stone-500 transition-colors"
-            onClick={() => moves.advanceQuest()}
-            title="Click to advance on the Quest Track"
-          >
-            {[...Array(13)].map((_, i) => (
-              <div key={i} className="relative w-8 h-8 flex items-center justify-center">
-                <div className="w-1 h-1 bg-stone-700 rounded-full" />
-                {G.questTrack.fellowship === i && (
-                  <div className="absolute w-8 h-8 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.6)] z-20 flex items-center justify-center text-stone-950 font-black text-xs border-2 border-stone-900 animate-pulse">F</div>
-                )}
-                {G.questTrack.sauron === i && (
-                  <div className="absolute w-8 h-8 bg-red-600 rounded-full shadow-[0_0_15px_rgba(220,38,38,0.6)] z-10 flex items-center justify-center text-white font-black text-xs border-2 border-stone-900">S</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Center - Map & Pyramid Area */}
-        <div className="col-span-7 flex flex-col gap-4">
-          {/* Map Visualization */}
-          <div className="h-48 bg-stone-800 rounded-lg border border-stone-700 p-4 relative overflow-hidden shadow-inner">
-             <div className="grid grid-cols-7 gap-2 h-full">
-                {Object.values(G.map).map(region => (
-                  <div 
-                    key={region.id} 
-                    onClick={() => moves.placeUnit(region.id)}
-                    className="border border-stone-700/50 rounded bg-stone-900/40 p-2 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-stone-700/50 active:scale-95"
-                  >
-                    <span className="text-[10px] font-bold text-stone-500 uppercase leading-none mb-2">{region.name}</span>
-                    <div className="flex gap-2">
-                        {region.units.FELLOWSHIP > 0 && <span className="w-4 h-4 bg-yellow-600 rounded-sm text-[10px] flex items-center justify-center font-bold">{region.units.FELLOWSHIP}</span>}
-                        {region.units.SAURON > 0 && <span className="w-4 h-4 bg-red-800 rounded-sm text-[10px] flex items-center justify-center font-bold">{region.units.SAURON}</span>}
-                    </div>
-                  </div>
-                ))}
-             </div>
-          </div>
-
-          {/* Pyramid Area */}
-          <div className="flex-1 bg-stone-950/50 rounded-lg border border-stone-800 p-8 flex flex-col items-center relative overflow-hidden">
-            <div className="flex flex-col gap-[-20px] items-center">
-                {G.pyramid.map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex gap-4 mb-[-40px] relative" style={{ zIndex: rowIndex }}>
-                        {row.map((card, colIndex) => {
-                            if (!card.cardId) return <div key={colIndex} className="w-24 h-32 invisible" />;
-                            
-                            const available = isCardAvailable(G.pyramid, rowIndex, colIndex);
-                            const actualCard = G.cardPool[card.cardId];
-                            
-                            return (
-                                <div 
-                                    key={colIndex}
-                                    onClick={() => handleCardClick(rowIndex, colIndex, card.cardId!, available)}
-                                    className={clsx(
-                                        "w-24 h-32 rounded-lg border-2 shadow-2xl flex flex-col items-center justify-center text-center p-1 cursor-pointer transition-all active:scale-95",
-                                        available ? "hover:scale-105" : "opacity-80 grayscale-[0.5] cursor-not-allowed",
-                                        card.isFaceUp && actualCard ? getCardColorClass(actualCard.type) : "bg-[repeating-linear-gradient(45deg,#1c1917,#1c1917_10px,#292524_10px,#292524_20px)] border-stone-700"
-                                    )}
-                                >
-                                    {card.isFaceUp ? renderCardDetails(card.cardId) : <div className="text-stone-700 font-bold text-2xl">?</div>}
-                                </div>
-                            );
-                        })}
-                    </div>
-                ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Sidebar - Player Hand / Landmarks */}
-        <div className="col-span-3 flex flex-col gap-4">
-          <div className="flex-1 bg-stone-800 rounded-lg border border-stone-700 p-4 shadow-inner">
-            <h3 className="text-[10px] font-bold mb-3 text-stone-500 uppercase tracking-widest">Game Log</h3>
-            <div className="text-[11px] space-y-2 h-64 overflow-y-auto text-stone-400 font-mono pr-2 scrollbar-thin scrollbar-thumb-stone-700 flex flex-col-reverse">
-              {[...G.log].reverse().map((entry, i) => (
-                <div key={i} className="border-b border-stone-700/30 pb-1 italic leading-tight">
-                  <span className="opacity-30 mr-2">{G.log.length - i}</span> {entry}
+      {/* Main Content Area */}
+      <div className="flex-1 min-h-0 grid grid-cols-12 gap-4">
+        
+        {/* Map Sidebar */}
+        <div className="col-span-3 bg-stone-800/40 p-2 rounded-xl border border-stone-700/50 flex flex-col gap-1 overflow-y-auto scrollbar-hide shadow-inner">
+           {Object.values(G.map).map(region => (
+             <div key={region.id} className="flex items-center gap-2">
+                <div className="flex flex-col gap-0.5 w-5 shrink-0">
+                   {/* SHOW ALL BUILT LANDMARKS AS ICONS */}
+                   {G.landmarks.filter(l => l.regionId === region.id && l.builtBy !== null).map(l => (
+                     <div key={l.id} className={clsx("p-1 rounded", l.builtBy === 'FELLOWSHIP' ? "text-yellow-500 bg-yellow-500/10" : "text-red-600 bg-red-600/10")}>
+                       <Tower size={12} />
+                     </div>
+                   ))}
                 </div>
-              ))}
-            </div>
-          </div>
-          <div className="h-48 bg-stone-800 rounded-lg border border-stone-700 p-4 shadow-inner overflow-hidden">
-             <h3 className="text-[10px] font-bold mb-3 text-stone-500 uppercase tracking-widest">Hand</h3>
-             <div className="flex flex-wrap gap-2 overflow-y-auto h-full pb-4">
-                {G.players[currentPlayer].cards.map((cId, i) => {
-                    const c = G.cardPool[cId];
-                    if (!c) return null;
-                    return (
-                      <div key={i} className={clsx("w-12 h-16 border rounded text-[8px] flex items-center justify-center p-1 text-center font-bold", getCardColorClass(c.type))}>
-                          {c.name.substring(0, 10)}
+
+                <div 
+                  onClick={() => handleRegionClick(region.id)}
+                  className={clsx(
+                    "flex-1 p-1.5 rounded-lg border transition-all cursor-pointer relative bg-stone-900/60 border-stone-700/50",
+                    moveSourceRegionId === region.id ? "ring-2 ring-yellow-400 bg-yellow-900/20" : "hover:bg-stone-800/80"
+                  )}
+                >
+                   <div className="flex justify-between items-center mb-0.5">
+                      <div className="flex items-center gap-1">
+                         <span className="opacity-40">{getRegionIcon(region.id)}</span>
+                         <span className="text-[8px] font-black uppercase tracking-tight text-stone-300">{region.name}</span>
                       </div>
-                    )
-                })}
+                      <div className="flex gap-0.5">
+                         {region.hasFortress.FELLOWSHIP && <Castle size={8} className="text-yellow-500" />}
+                         {region.hasFortress.SAURON && <Castle size={8} className="text-red-600" />}
+                      </div>
+                   </div>
+                   <div className="flex gap-2">
+                      <div className="flex items-center gap-0.5">
+                         <div className="w-1 h-1 rounded-full bg-yellow-600" />
+                         <span className="text-[9px] font-mono font-black leading-none">{region.units.FELLOWSHIP}</span>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                         <div className="w-1 h-1 rounded-full bg-red-800" />
+                         <span className="text-[9px] font-mono font-black leading-none">{region.units.SAURON}</span>
+                      </div>
+                   </div>
+                </div>
              </div>
+           ))}
+           
+           <div className="mt-4 pt-4 border-t border-stone-700/50">
+              <h4 className="text-[8px] font-bold text-stone-500 uppercase tracking-widest text-center mb-2">Available Landmarks</h4>
+              <div className="flex flex-col gap-1">
+                {G.availableLandmarks.map(id => {
+                  const l = G.landmarks.find(landmark => landmark.id === id);
+                  if (!l || l.builtBy !== null) return null;
+                  return (
+                    <button 
+                        key={l.id} 
+                        disabled={hasAnyPending}
+                        onClick={() => setSelectedLandmark(l)} 
+                        className={clsx(
+                            "p-2 bg-stone-900/60 border border-stone-700 rounded-lg text-left transition-all",
+                            hasAnyPending ? "opacity-30 cursor-not-allowed" : "hover:bg-stone-800"
+                        )}
+                    >
+                       <div className="text-[9px] font-black uppercase text-yellow-500">{l.name}</div>
+                       <div className="text-[7px] text-stone-500 leading-tight">{l.description.substring(0, 40)}...</div>
+                    </button>
+                  )
+                })}
+              </div>
+           </div>
+        </div>
+
+        {/* Pyramid Center */}
+        <div className="col-span-9 flex flex-col items-center justify-center p-4 bg-stone-950/20 rounded-2xl border border-stone-800/40 shadow-inner h-full relative overflow-hidden">
+          <div className="flex flex-col items-center origin-center scale-[0.75] md:scale-[0.85] lg:scale-95 xl:scale-100">
+              {G.pyramid.map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex gap-3 mb-[-32px] relative" style={{ zIndex: rowIndex }}>
+                      {row.map((slot, colIndex) => {
+                          if (!slot.cardId) return <div key={colIndex} className="w-20 h-28 invisible" />;
+                          const available = isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter);
+                          const card = G.cardPool[slot.cardId];
+                          if (!card) return null;
+                          
+                          return (
+                              <div 
+                                key={colIndex} 
+                                onClick={() => handleCardClick(rowIndex, colIndex, slot.cardId!, available)} 
+                                className={clsx(
+                                  "w-20 h-28 rounded-lg border-2 shadow-xl flex flex-col items-center justify-center text-center p-1.5 cursor-pointer transition-all",
+                                  available ? "hover:scale-110 border-white/20 z-50 ring-2 ring-white/5" : "opacity-80 grayscale-[0.6] border-stone-800 scale-95",
+                                  slot.isFaceUp ? getCardColorClass(card.type) : "bg-[repeating-linear-gradient(45deg,#1c1917,#1c1917_10px,#292524_10px,#292524_20px)]"
+                                )}
+                              >
+                                  {slot.isFaceUp ? (
+                                    <div className="flex flex-col items-center justify-center h-full w-full">
+                                       <span className="text-[8px] font-black uppercase leading-tight line-clamp-2">{card.name}</span>
+                                       <div className="mt-auto flex flex-wrap gap-0.5 justify-center">
+                                          {card.bonus?.coins && <span className="bg-yellow-500 text-yellow-950 px-0.5 rounded text-[7px] font-bold">+{card.bonus?.coins}C</span>}
+                                          {card.bonus?.race && <span className="bg-black/30 px-0.5 rounded text-[7px] font-bold">{card.bonus?.race.substring(0,3)}</span>}
+                                       </div>
+                                    </div>
+                                  ) : <div className="text-stone-800 font-bold text-3xl opacity-10">?</div>}
+                              </div>
+                          );
+                      })}
+                  </div>
+              ))}
           </div>
         </div>
       </div>
 
-      {/* Selected Card Modal */}
-      {selectedCard && selectedFullCard && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedCard(null)}>
-          <div 
-            className="bg-stone-800 border-2 border-stone-600 rounded-xl p-8 flex flex-col items-center max-w-sm w-full shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className={clsx("w-48 h-64 border-4 rounded-lg shadow-2xl flex flex-col items-center justify-center mb-8 p-4", getCardColorClass(selectedFullCard.type))}>
-               <div className="text-sm uppercase mb-2 font-bold">{selectedFullCard.name}</div>
-               {/* Show large cost / bonus for modal */}
-               <div className="flex flex-col gap-4 w-full h-full bg-black/20 rounded p-2 text-center items-center justify-center">
-                  <div>
-                    <div className="text-[10px] uppercase opacity-70 mb-1">Cost</div>
-                    {selectedFullCard.cost.coins === 0 && selectedFullCard.cost.skills.length === 0 ? (
-                      <div className="text-xs font-bold">Free</div>
-                    ) : (
-                      <div className="flex gap-1 justify-center">
-                        {selectedFullCard.cost.coins > 0 && <span className="bg-yellow-500 text-yellow-950 px-2 py-1 rounded text-xs font-bold">{selectedFullCard.cost.coins} Coins</span>}
-                        {selectedFullCard.cost.skills.map((s, i) => <span key={i} className="bg-stone-300 text-stone-900 px-2 py-1 rounded text-xs font-bold">{s}</span>)}
-                      </div>
-                    )}
+      {/* Bottom Separation - Players */}
+      <div className="flex justify-between items-center shrink-0 pt-1 border-t border-stone-800">
+         {renderPlayerPanel('FELLOWSHIP')}
+         <div className="text-center opacity-10">
+            <h1 className="text-lg font-black tracking-[0.3em] text-stone-600 uppercase">Middle-earth</h1>
+         </div>
+         {renderPlayerPanel('SAURON')}
+      </div>
+
+      {/* Overlays */}
+      {hasAnyPending && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md">
+           <div className="bg-stone-800 border-2 border-stone-600 p-6 rounded-3xl shadow-2xl max-w-lg w-full text-center">
+              {G.pendingRacePick === 'GREY_HAVENS_CHOOSE_RACE' && (
+                <div>
+                   <h2 className="text-xl font-black mb-6 uppercase tracking-widest">Grey Havens: Choose a Race</h2>
+                   <div className="grid grid-cols-3 gap-3">
+                      {(['DWARF', 'ELF', 'HOBBIT', 'HUMAN', 'ENT', 'WIZARD'] as RaceSymbol[]).map(r => (
+                        <button key={r} onClick={() => moves.greyHavensChooseRace(r)} className="bg-stone-900 p-3 rounded-lg font-bold hover:bg-stone-700 uppercase text-[10px]">{r}</button>
+                      ))}
+                   </div>
+                </div>
+              )}
+              {(G.pendingRacePick === 'DUPLICATE' || G.pendingRacePick === 'UNIQUE_3' || G.pendingRacePick === 'GREY_HAVENS_PICK_TILE') && (
+                <div>
+                   <h2 className="text-xl font-black mb-6 uppercase tracking-widest text-green-500">Acquire Race Tile</h2>
+                   <div className="flex gap-3 justify-center">
+                      {G.pendingRaceSelectionPool.map(tile => (
+                        <button key={tile.id} onClick={() => moves.selectRaceTile(tile.id)} className="bg-stone-900 border-2 border-stone-700 p-4 rounded-2xl w-48 hover:border-green-500 transition-all text-left">
+                          <div className="font-black text-yellow-500 text-sm uppercase mb-1">{tile.name}</div>
+                          <div className="text-[10px] opacity-60 leading-tight italic">{tile.description}</div>
+                        </button>
+                      ))}
+                   </div>
+                </div>
+              )}
+              {!G.pendingRacePick && !G.pendingDiscardTake && !G.pendingGreyRemoval && G.entChoicesCount === 0 && (
+                <div>
+                   <h2 className="font-black tracking-widest text-2xl mb-2 uppercase">Action Required</h2>
+                   <button onClick={() => moves.skipPendingActions()} className="bg-red-600 hover:bg-red-500 px-8 py-3 rounded-full font-black uppercase tracking-widest text-xs transition-all">Skip Actions</button>
+                </div>
+              )}
+           </div>
+        </div>
+      )}
+
+      {/* Card Modal */}
+      {selectedCard && selectedFullCard && !hasAnyPending && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedCard(null)}>
+          <div className="bg-stone-800 border-2 border-stone-600 rounded-3xl p-8 flex flex-col items-center max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className={clsx("w-48 h-64 border-4 rounded-2xl shadow-2xl flex flex-col items-center justify-center mb-8 p-4 relative", getCardColorClass(selectedFullCard.type))}>
+               <div className="text-lg uppercase mb-3 font-black text-center">{selectedFullCard.name}</div>
+               <div className="flex flex-col gap-3 w-full h-full bg-black/30 rounded-xl p-3 text-center items-center justify-center border border-white/5">
+                  <div className="flex gap-1.5 justify-center flex-wrap">
+                    {selectedFullCard.cost.coins > 0 && <div className="bg-yellow-500 text-yellow-950 px-2 py-1 rounded text-xs font-black flex items-center gap-1"><Coins size={12}/>{selectedFullCard.cost.coins}</div>}
+                    {selectedFullCard.cost.skills.map((s, i) => <div key={i} className="bg-stone-100 text-stone-900 px-2 py-1 rounded text-[9px] font-black uppercase">{s.substring(0,3)}</div>)}
+                    {selectedFullCard.cost.coins === 0 && selectedFullCard.cost.skills.length === 0 && <div className="text-white font-black uppercase tracking-widest text-sm">FREE</div>}
                   </div>
-                  {selectedFullCard.chainingSymbol && (
-                    <div className="text-[10px] bg-stone-900 text-stone-200 px-2 py-1 rounded-full uppercase">
-                       Chain: {selectedFullCard.chainingSymbol}
-                    </div>
-                  )}
                </div>
             </div>
-            <div className="flex gap-4 w-full">
+            <div className="flex gap-3 w-full">
+              <button className="flex-1 bg-stone-700 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-stone-600 transition-all" onClick={() => { moves.discardCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex }); setSelectedCard(null); }}>Discard</button>
+              <button className={clsx("flex-1 py-3 rounded-xl font-black uppercase tracking-widest transition-all", canAffordCard ? "bg-yellow-700 hover:bg-yellow-600 text-yellow-50" : "bg-stone-800 text-stone-600 opacity-50 cursor-not-allowed")} disabled={!canAffordCard} onClick={() => { moves.takeCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex }); setSelectedCard(null); }}>{canAffordCard ? 'Acquire' : 'No Gold'}</button>
+            </div>
+            <button className="mt-6 text-[10px] text-stone-500 uppercase tracking-widest font-bold hover:text-stone-300" onClick={() => setSelectedCard(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      {/* Landmark Modal */}
+      {selectedLandmark && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedLandmark(null)}>
+          <div className="bg-stone-800 border-2 border-stone-600 rounded-3xl p-8 flex flex-col items-center max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-full text-center mb-6">
+               <Tower className="mx-auto mb-4 text-yellow-500" size={48} />
+               <h2 className="text-2xl font-black uppercase tracking-widest text-yellow-500">{selectedLandmark.name}</h2>
+               <p className="text-xs text-stone-400 mt-2 italic">{selectedLandmark.description}</p>
+            </div>
+            
+            <div className="w-full bg-black/30 rounded-xl p-4 mb-8 border border-white/5">
+                <div className="text-[10px] uppercase opacity-60 mb-2 tracking-widest">Required Skills</div>
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                   {selectedLandmark.cost.map((s, i) => (
+                     <div key={i} className="bg-stone-100 text-stone-900 px-3 py-1 rounded font-black text-[10px] uppercase">{s}</div>
+                   ))}
+                   {[...Array(G.players[currentPlayerSide].builtLandmarks.length)].map((_, i) => (
+                     <div key={`extra-${i}`} className="bg-red-900 text-red-100 px-3 py-1 rounded font-black text-[10px] uppercase border border-red-700">ANY +1</div>
+                   ))}
+                </div>
+            </div>
+
+            <div className="flex gap-3 w-full">
+              <button className="flex-1 bg-stone-700 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-stone-600 transition-all" onClick={() => setSelectedLandmark(null)}>Cancel</button>
               <button 
-                className="flex-1 bg-stone-700 hover:bg-stone-600 text-stone-200 py-3 rounded font-bold uppercase tracking-widest transition-colors border border-stone-500 flex flex-col items-center justify-center leading-tight"
-                onClick={handleDiscard}
-              >
-                Discard
-                <span className="text-[10px] font-normal text-stone-400 mt-1">Gain {G.currentChapter} Coin{G.currentChapter > 1 ? 's' : ''}</span>
-              </button>
-              <button 
+                disabled={!canAffordLandmark(selectedLandmark, G.players[currentPlayerSide])}
                 className={clsx(
-                  "flex-1 py-3 rounded font-bold uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(202,138,4,0.3)] border flex flex-col items-center justify-center leading-tight",
-                  canAfford 
-                    ? "bg-yellow-700 hover:bg-yellow-600 text-yellow-100 border-yellow-500" 
-                    : "bg-stone-800 text-stone-500 border-stone-700 cursor-not-allowed"
+                  "flex-1 py-3 rounded-xl font-black uppercase tracking-widest transition-all",
+                  canAffordLandmark(selectedLandmark, G.players[currentPlayerSide]) ? "bg-yellow-700 hover:bg-yellow-600 text-yellow-50 shadow-lg shadow-yellow-900/20" : "bg-stone-800 text-stone-600 opacity-50 cursor-not-allowed"
                 )}
-                disabled={!canAfford}
-                onClick={handleTake}
+                onClick={() => { moves.buildLandmark(selectedLandmark.id); setSelectedLandmark(null); }}
               >
-                {canAfford ? 'Take' : 'Cannot Afford'}
-                <span className={clsx("text-[10px] font-normal mt-1", canAfford ? "text-yellow-300" : "text-red-500")}>
-                  Cost: {currentCost} Coin{currentCost !== 1 ? 's' : ''}
-                </span>
+                Build ({calculateLandmarkCost(selectedLandmark, G.players[currentPlayerSide])} C)
               </button>
             </div>
-            <button className="mt-6 text-xs text-stone-500 uppercase tracking-widest hover:text-stone-300" onClick={() => setSelectedCard(null)}>
-              Cancel
-            </button>
           </div>
         </div>
       )}
