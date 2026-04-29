@@ -1,13 +1,13 @@
 import { GameState, Region, Card, RaceTile, RaceSymbol, Landmark } from './types';
 
 export const REGIONS: Record<string, Region> = {
-  LINDON: { id: 'LINDON', name: 'Lindon', units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
-  ARNOR: { id: 'ARNOR', name: 'Arnor', units: { FELLOWSHIP: 2, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
-  ENEDWAITH: { id: 'ENEDWAITH', name: 'Enedwaith', units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
-  GONDOR: { id: 'GONDOR', name: 'Gondor', units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
-  ROHAN: { id: 'ROHAN', name: 'Rohan', units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
-  RHOVANION: { id: 'RHOVANION', name: 'Rhovanion', units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
-  MORDOR: { id: 'MORDOR', name: 'Mordor', units: { FELLOWSHIP: 0, SAURON: 2 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  LINDON: { id: 'LINDON', name: 'Lindon', adjacent: ['ARNOR'], units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  ARNOR: { id: 'ARNOR', name: 'Arnor', adjacent: ['LINDON', 'ENEDWAITH', 'RHOVANION'], units: { FELLOWSHIP: 2, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  ENEDWAITH: { id: 'ENEDWAITH', name: 'Enedwaith', adjacent: ['ARNOR', 'RHOVANION', 'ROHAN', 'GONDOR'], units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  GONDOR: { id: 'GONDOR', name: 'Gondor', adjacent: ['ENEDWAITH', 'ROHAN', 'MORDOR'], units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  ROHAN: { id: 'ROHAN', name: 'Rohan', adjacent: ['ENEDWAITH', 'RHOVANION', 'GONDOR', 'MORDOR'], units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  RHOVANION: { id: 'RHOVANION', name: 'Rhovanion', adjacent: ['ARNOR', 'ENEDWAITH', 'ROHAN'], units: { FELLOWSHIP: 0, SAURON: 0 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
+  MORDOR: { id: 'MORDOR', name: 'Mordor', adjacent: ['ROHAN', 'GONDOR'], units: { FELLOWSHIP: 0, SAURON: 2 }, hasFortress: { FELLOWSHIP: false, SAURON: false } },
 };
 
 export const RACE_TILES: Record<string, RaceTile[]> = {

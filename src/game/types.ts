@@ -34,6 +34,7 @@ export interface Card {
 export interface Region {
   id: string;
   name: string;
+  adjacent: string[];
   units: {
     FELLOWSHIP: number;
     SAURON: number;

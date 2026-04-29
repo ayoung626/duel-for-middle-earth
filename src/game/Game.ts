@@ -420,7 +420,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       if (G.pendingMovementsCount <= 0) return INVALID_MOVE;
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
       const from = G.map[fromRegionId], to = G.map[toRegionId];
-      if (!from || !to || fromRegionId === toRegionId || from.units[playerSide] <= 0) return INVALID_MOVE;
+      if (!from || !to || fromRegionId === toRegionId || from.units[playerSide] <= 0 || !from.adjacent.includes(toRegionId)) return INVALID_MOVE;
       from.units[playerSide]--;
       const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
       if (to.units[enemySide] > 0) to.units[enemySide]--; else to.units[playerSide]++;
