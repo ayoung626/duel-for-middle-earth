@@ -53,7 +53,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   const isPendingPlacement = G.pendingPlacement !== null;
   const isPendingRemoval = G.pendingRemovalCount > 0;
   const isPendingMovement = G.pendingMovementsCount > 0;
-  const hasAnyPending = isPendingPlacement || isPendingRemoval || isPendingMovement || G.pendingRacePick !== null || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
+  
+  const isMapAction = isPendingPlacement || isPendingRemoval || isPendingMovement;
+  const isModalAction = !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
+  const hasAnyPending: boolean = !!(isMapAction || isModalAction);
 
   const handleCardClick = (rowIndex: number, colIndex: number, cardId: string, available: boolean) => {
     if (hasAnyPending) return;
@@ -107,7 +110,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
 
         <div className="bg-black/30 p-1 rounded-lg border border-stone-800 min-h-8 flex flex-wrap gap-1 content-start">
            {chains.map(c => (
-             <span key={c} className="bg-stone-700 text-[6px] px-1 py-0.5 rounded text-stone-200 border border-stone-600 uppercase font-black">{c ? c.substring(0,3) : ''}</span>
+             <span key={c || 'none'} className="bg-stone-700 text-[6px] px-1 py-0.5 rounded text-stone-200 border border-stone-600 uppercase font-black">{c ? c.substring(0,3) : ''}</span>
            ))}
         </div>
 
@@ -145,51 +148,74 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-h-0 grid grid-cols-12 gap-4">
+      <div className="flex-1 min-h-0 grid grid-cols-12 gap-4 relative">
         
+        {/* Map-based Action Banner (Non-blocking) */}
+        {isMapAction && !isModalAction && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 border border-red-400 px-8 py-3 rounded-full shadow-2xl z-50 animate-bounce pointer-events-none flex flex-col items-center">
+              <h2 className="font-black tracking-widest text-xs uppercase text-white shadow-sm">
+                  {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNITS`}
+                  {isPendingRemoval && `REMOVE ${G.pendingRemovalCount} ENEMY UNITS`}
+                  {isPendingMovement && `MANEUVER ${G.pendingMovementsCount} TROOPS`}
+              </h2>
+              <p className="text-[7px] uppercase font-bold text-red-100 opacity-80 mt-0.5">Click the map to execute actions</p>
+              <button 
+                onClick={(e) => { e.stopPropagation(); moves.skipPendingActions(); }} 
+                className="mt-2 bg-white/20 hover:bg-white/30 text-white text-[7px] px-3 py-1 rounded-full pointer-events-auto font-black uppercase tracking-tighter"
+              >
+                  Skip Actions
+              </button>
+          </div>
+        )}
+
         {/* Map Sidebar */}
         <div className="col-span-3 bg-stone-800/40 p-2 rounded-xl border border-stone-700/50 flex flex-col gap-1 overflow-y-auto scrollbar-hide shadow-inner">
-           {Object.values(G.map).map(region => (
-             <div key={region.id} className="flex items-center gap-2">
-                <div className="flex flex-col gap-0.5 w-5 shrink-0">
-                   {/* SHOW ALL BUILT LANDMARKS AS ICONS */}
-                   {G.landmarks.filter(l => l.regionId === region.id && l.builtBy !== null).map(l => (
-                     <div key={l.id} className={clsx("p-1 rounded", l.builtBy === 'FELLOWSHIP' ? "text-yellow-500 bg-yellow-500/10" : "text-red-600 bg-red-600/10")}>
-                       <Tower size={12} />
-                     </div>
-                   ))}
-                </div>
+           {Object.values(G.map).map(region => {
+             const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
+                                    (isPendingRemoval && region.units[enemySide] > 0) ||
+                                    (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : region.id !== moveSourceRegionId));
 
-                <div 
-                  onClick={() => handleRegionClick(region.id)}
-                  className={clsx(
-                    "flex-1 p-1.5 rounded-lg border transition-all cursor-pointer relative bg-stone-900/60 border-stone-700/50",
-                    moveSourceRegionId === region.id ? "ring-2 ring-yellow-400 bg-yellow-900/20" : "hover:bg-stone-800/80"
-                  )}
-                >
-                   <div className="flex justify-between items-center mb-0.5">
-                      <div className="flex items-center gap-1">
-                         <span className="opacity-40">{getRegionIcon(region.id)}</span>
-                         <span className="text-[8px] font-black uppercase tracking-tight text-stone-300">{region.name}</span>
+             return (
+              <div key={region.id} className="flex items-center gap-2">
+                 <div className="flex flex-col gap-0.5 w-5 shrink-0">
+                    {G.landmarks.filter(l => l.regionId === region.id && l.builtBy !== null).map(l => (
+                      <div key={l.id} className={clsx("p-1 rounded", l.builtBy === 'FELLOWSHIP' ? "text-yellow-500 bg-yellow-500/10" : "text-red-600 bg-red-600/10")}>
+                        <Tower size={12} />
                       </div>
-                      <div className="flex gap-0.5">
-                         {region.hasFortress.FELLOWSHIP && <Castle size={8} className="text-yellow-500" />}
-                         {region.hasFortress.SAURON && <Castle size={8} className="text-red-600" />}
-                      </div>
-                   </div>
-                   <div className="flex gap-2">
-                      <div className="flex items-center gap-0.5">
-                         <div className="w-1 h-1 rounded-full bg-yellow-600" />
-                         <span className="text-[9px] font-mono font-black leading-none">{region.units.FELLOWSHIP}</span>
-                      </div>
-                      <div className="flex items-center gap-0.5">
-                         <div className="w-1 h-1 rounded-full bg-red-800" />
-                         <span className="text-[9px] font-mono font-black leading-none">{region.units.SAURON}</span>
-                      </div>
-                   </div>
-                </div>
-             </div>
-           ))}
+                    ))}
+                 </div>
+
+                 <div 
+                   onClick={() => handleRegionClick(region.id)}
+                   className={clsx(
+                     "flex-1 p-1.5 rounded-lg border transition-all cursor-pointer relative bg-stone-900/60 border-stone-700/50",
+                     isHighlighted ? "ring-2 ring-red-500 bg-red-900/20" : moveSourceRegionId === region.id ? "ring-2 ring-yellow-400 bg-yellow-900/20" : "hover:bg-stone-800/80"
+                   )}
+                 >
+                    <div className="flex justify-between items-center mb-0.5">
+                       <div className="flex items-center gap-1">
+                          <span className="opacity-40">{getRegionIcon(region.id)}</span>
+                          <span className="text-[8px] font-black uppercase tracking-tight text-stone-300">{region.name}</span>
+                       </div>
+                       <div className="flex gap-0.5">
+                          {region.hasFortress.FELLOWSHIP && <Castle size={8} className="text-yellow-500" />}
+                          {region.hasFortress.SAURON && <Castle size={8} className="text-red-600" />}
+                       </div>
+                    </div>
+                    <div className="flex gap-2">
+                       <div className="flex items-center gap-0.5">
+                          <div className="w-1 h-1 rounded-full bg-yellow-600" />
+                          <span className="text-[9px] font-mono font-black leading-none">{region.units.FELLOWSHIP}</span>
+                       </div>
+                       <div className="flex items-center gap-0.5">
+                          <div className="w-1 h-1 rounded-full bg-red-800" />
+                          <span className="text-[9px] font-mono font-black leading-none">{region.units.SAURON}</span>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+             );
+           })}
            
            <div className="mt-4 pt-4 border-t border-stone-700/50">
               <h4 className="text-[8px] font-bold text-stone-500 uppercase tracking-widest text-center mb-2">Available Landmarks</h4>
@@ -218,7 +244,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
 
         {/* Pyramid Center */}
         <div className="col-span-9 flex flex-col items-center justify-center p-4 bg-stone-950/20 rounded-2xl border border-stone-800/40 shadow-inner h-full relative overflow-hidden">
-          <div className="flex flex-col items-center origin-center scale-[0.75] md:scale-[0.85] lg:scale-95 xl:scale-100">
+          <div className="flex flex-col items-center origin-center scale-[0.9] lg:scale-100 xl:scale-110">
               {G.pyramid.map((row, rowIndex) => (
                   <div key={rowIndex} className="flex gap-3 mb-[-32px] relative" style={{ zIndex: rowIndex }}>
                       {row.map((slot, colIndex) => {
@@ -226,6 +252,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                           const available = isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter);
                           const card = G.cardPool[slot.cardId];
                           if (!card) return null;
+                          const bonus = card.bonus;
                           
                           return (
                               <div 
@@ -241,8 +268,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                                     <div className="flex flex-col items-center justify-center h-full w-full">
                                        <span className="text-[8px] font-black uppercase leading-tight line-clamp-2">{card.name}</span>
                                        <div className="mt-auto flex flex-wrap gap-0.5 justify-center">
-                                          {card.bonus?.coins && <span className="bg-yellow-500 text-yellow-950 px-0.5 rounded text-[7px] font-bold">+{card.bonus?.coins}C</span>}
-                                          {card.bonus?.race && <span className="bg-black/30 px-0.5 rounded text-[7px] font-bold">{card.bonus?.race.substring(0,3)}</span>}
+                                          {bonus?.coins && <span className="bg-yellow-500 text-yellow-950 px-0.5 rounded text-[7px] font-bold">+{bonus.coins}C</span>}
+                                          {bonus?.race && <span className="bg-black/30 px-0.5 rounded text-[7px] font-bold">{String(bonus.race).substring(0,3)}</span>}
                                        </div>
                                     </div>
                                   ) : <div className="text-stone-800 font-bold text-3xl opacity-10">?</div>}
@@ -264,8 +291,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
          {renderPlayerPanel('SAURON')}
       </div>
 
-      {/* Overlays */}
-      {hasAnyPending && (
+      {/* MODAL OVERLAYS (Only for self-contained choices) */}
+      {isModalAction && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-md">
            <div className="bg-stone-800 border-2 border-stone-600 p-6 rounded-3xl shadow-2xl max-w-lg w-full text-center">
               {G.pendingRacePick === 'GREY_HAVENS_CHOOSE_RACE' && (
@@ -273,7 +300,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                    <h2 className="text-xl font-black mb-6 uppercase tracking-widest">Grey Havens: Choose a Race</h2>
                    <div className="grid grid-cols-3 gap-3">
                       {(['DWARF', 'ELF', 'HOBBIT', 'HUMAN', 'ENT', 'WIZARD'] as RaceSymbol[]).map(r => (
-                        <button key={r} onClick={() => moves.greyHavensChooseRace(r)} className="bg-stone-900 p-3 rounded-lg font-bold hover:bg-stone-700 uppercase text-[10px]">{r}</button>
+                        <button key={r} onClick={() => moves.greyHavensChooseRace(r)} className="bg-stone-900 border border-stone-700 p-4 rounded-xl font-bold hover:bg-stone-700 transition-all uppercase tracking-widest text-xs">{r}</button>
                       ))}
                    </div>
                 </div>
@@ -291,17 +318,47 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                    </div>
                 </div>
               )}
-              {!G.pendingRacePick && !G.pendingDiscardTake && !G.pendingGreyRemoval && G.entChoicesCount === 0 && (
+              {G.pendingDiscardTake && (
                 <div>
-                   <h2 className="font-black tracking-widest text-2xl mb-2 uppercase">Action Required</h2>
-                   <button onClick={() => moves.skipPendingActions()} className="bg-red-600 hover:bg-red-500 px-8 py-3 rounded-full font-black uppercase tracking-widest text-xs transition-all">Skip Actions</button>
+                   <h2 className="text-xl font-black mb-6 uppercase tracking-widest">Take a Card from Discard</h2>
+                   <div className="flex flex-wrap gap-2 justify-center max-h-96 overflow-y-auto">
+                      {G.discardPile.map(cId => (
+                        <div key={cId} onClick={() => moves.takeDiscardCard(cId)} className={clsx("w-20 h-28 rounded border-2 cursor-pointer hover:scale-105 transition-transform", getCardColorClass(G.cardPool[cId].type))}>
+                           <div className="flex flex-col items-center justify-center h-full p-1 text-center">
+                              <span className="text-[8px] font-black uppercase">{G.cardPool[cId].name}</span>
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              )}
+              {G.pendingGreyRemoval && (
+                <div>
+                   <h2 className="text-xl font-black mb-6 uppercase tracking-widest">Remove Enemy Grey Card</h2>
+                   <div className="flex gap-2 justify-center flex-wrap">
+                      {G.players[enemySide].cards.filter(cId => G.cardPool[cId].type === 'GREY').map(cId => (
+                        <button key={cId} onClick={() => moves.removeGreyCard(cId)} className="bg-stone-300 border-2 border-stone-400 p-2 rounded text-stone-900 font-bold text-[8px] hover:bg-red-200">
+                          {G.cardPool[cId].name}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+              )}
+              {G.entChoicesCount > 0 && (
+                <div>
+                   <h2 className="text-xl font-black mb-6 uppercase tracking-widest">Ent Choice ({G.entChoicesCount})</h2>
+                   <div className="flex gap-3 justify-center">
+                      <button onClick={() => moves.entChoice('KILL')} className="bg-red-800 p-3 rounded-lg font-bold text-[10px]">KILL</button>
+                      <button onClick={() => moves.entChoice('STEAL')} className="bg-yellow-700 p-3 rounded-lg font-bold text-[10px]">STEAL</button>
+                      <button onClick={() => moves.entChoice('MOVE')} className="bg-blue-800 p-3 rounded-lg font-bold text-[10px]">MOVE</button>
+                   </div>
                 </div>
               )}
            </div>
         </div>
       )}
 
-      {/* Card Modal */}
+      {/* Selected Card Modal */}
       {selectedCard && selectedFullCard && !hasAnyPending && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedCard(null)}>
           <div className="bg-stone-800 border-2 border-stone-600 rounded-3xl p-8 flex flex-col items-center max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>

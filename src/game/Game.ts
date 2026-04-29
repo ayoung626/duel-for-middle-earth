@@ -295,17 +295,32 @@ export const DuelForMiddleEarth: Game<GameState> = {
     },
 
     placeUnit: ({ G, ctx, events }, regionId: string) => {
-      if (!G.pendingPlacement) return INVALID_MOVE;
+      if (!G.pendingPlacement || !G.pendingPlacement.includes(regionId)) return INVALID_MOVE;
       const region = G.map[regionId];
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
       const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
-      if (region.units[enemySide] > 0) region.units[enemySide]--;
-      else region.units[playerSide]++;
-      G.pendingPlacementCount--;
-      if (G.pendingPlacementCount <= 0) {
-        G.pendingPlacement = null;
-        if (G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && G.entChoicesCount === 0) {
-            if (G.extraTurn) { G.extraTurn = false; G.log.push(`${playerSide} extra turn!`); } else events.endTurn();
+      
+      const totalUnits = G.pendingPlacementCount;
+      for (let i = 0; i < totalUnits; i++) {
+          if (region.units[enemySide] > 0) {
+            region.units[enemySide]--;
+          } else {
+            region.units[playerSide]++;
+          }
+      }
+
+      G.log.push(`${playerSide} placed ${totalUnits} unit(s) in ${region.name}`);
+      G.pendingPlacementCount = 0;
+      G.pendingPlacement = null;
+
+      const hasFollowUp = G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
+
+      if (!hasFollowUp) {
+        if (G.extraTurn) {
+            G.extraTurn = false;
+            G.log.push(`${playerSide} takes an extra turn!`);
+        } else {
+            events.endTurn();
         }
       }
     },
