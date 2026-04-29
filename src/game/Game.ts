@@ -145,6 +145,33 @@ const updateAvailableLandmarks = (G: GameState) => {
     }
 };
 
+const advanceQuestTrack = (G: GameState, side: Side, amount: number) => {
+  const sideKey = side.toLowerCase() as 'fellowship' | 'sauron';
+  const oldVal = G.questTrack[sideKey];
+  const newVal = Math.min(14, oldVal + amount);
+  G.questTrack[sideKey] = newVal;
+
+  const player = G.players[side];
+  
+  if (oldVal < 3 && newVal >= 3) {
+    player.coins += 1;
+    G.log.push(`${side} reached Ring space 3: gained 1 coin`);
+  }
+  if (oldVal < 6 && newVal >= 6) {
+    if (!G.pendingPlacement) G.pendingPlacement = Object.keys(G.map);
+    G.pendingPlacementCount++;
+    G.log.push(`${side} reached Ring space 6: deploy 1 unit`);
+  }
+  if (oldVal < 9 && newVal >= 9) {
+    G.extraTurn = true;
+    G.log.push(`${side} reached Ring space 9: extra turn`);
+  }
+  if (oldVal < 12 && newVal >= 12) {
+    G.pendingFortressRemoval = true;
+    G.log.push(`${side} reached Ring space 12: remove enemy fortress`);
+  }
+};
+
 const checkChapterEnd = (G: GameState) => {
   if (G.pyramid.every(row => row.every(slot => slot.cardId === null)) && G.currentChapter < 3) {
     G.currentChapter++;
@@ -168,7 +195,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
   },
   moves: {
     takeCard: ({ G, ctx, events }, { rowIndex, colIndex }: { rowIndex: number, colIndex: number }) => {
-      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick) return INVALID_MOVE;
+      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingFortressRemoval) return INVALID_MOVE;
       const pyramidSlot = G.pyramid[rowIndex][colIndex];
       if (!pyramidSlot || pyramidSlot.cardId === null || !isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter)) return INVALID_MOVE;
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -209,8 +236,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
           if (player.tiles.includes('t-dwa-3')) G.pendingMovementsCount += 2;
       }
       if (card.bonus?.quest) {
-          if (playerSide === 'FELLOWSHIP') G.questTrack.fellowship += card.bonus.quest;
-          else G.questTrack.sauron += card.bonus.quest;
+          advanceQuestTrack(G, playerSide, card.bonus.quest);
       }
       if (card.bonus?.removeEnemyCoins) {
           const enemy = G.players[playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP'];
@@ -219,7 +245,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
           G.log.push(`${playerSide} removed ${removed} coins`);
       }
       if (card.type === 'YELLOW') {
-          if (player.tiles.includes('t-hum-2')) { if (playerSide === 'FELLOWSHIP') G.questTrack.fellowship++; else G.questTrack.sauron++; }
+          if (player.tiles.includes('t-hum-2')) { advanceQuestTrack(G, playerSide, 1); }
           if (player.tiles.includes('t-elf-1')) G.extraTurn = true;
       }
       player.cards.push(card.id);
@@ -233,14 +259,19 @@ export const DuelForMiddleEarth: Game<GameState> = {
       if (card.bonus?.placement) {
         let count = card.bonus.placementCount || 1;
         if (player.tiles.includes('t-hum-3')) count++;
-        G.pendingPlacement = player.tiles.includes('t-elf-2') ? Object.keys(G.map) : card.bonus.placement;
-        G.pendingPlacementCount = count;
+        if (!G.pendingPlacement) G.pendingPlacement = [];
+        G.pendingPlacement = Array.from(new Set([...G.pendingPlacement, ...(player.tiles.includes('t-elf-2') ? Object.keys(G.map) : card.bonus.placement)]));
+        G.pendingPlacementCount += count;
       }
       if (card.bonus?.removeEnemyUnits) G.pendingRemovalCount += card.bonus.removeEnemyUnits;
       if (card.bonus?.movements) G.pendingMovementsCount += card.bonus.movements;
-      if (card.type === 'BLUE' && player.tiles.includes('t-hob-1')) { G.pendingPlacement = Object.keys(G.map); G.pendingPlacementCount++; }
+      if (card.type === 'BLUE' && player.tiles.includes('t-hob-1')) { 
+          if (!G.pendingPlacement) G.pendingPlacement = Object.keys(G.map);
+          else G.pendingPlacement = Object.keys(G.map);
+          G.pendingPlacementCount++; 
+      }
 
-      const hasFollowUp = G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || triggerRaceTile;
+      const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || triggerRaceTile || G.pendingFortressRemoval;
       if (!hasFollowUp) {
           if (G.extraTurn) { G.extraTurn = false; G.log.push(`${playerSide} extra turn!`); }
           else events.endTurn();
@@ -248,7 +279,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
     },
 
     discardCard: ({ G, ctx, events }, { rowIndex, colIndex }: { rowIndex: number, colIndex: number }) => {
-      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick) return INVALID_MOVE;
+      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingFortressRemoval) return INVALID_MOVE;
       const pyramidSlot = G.pyramid[rowIndex][colIndex];
       if (!pyramidSlot || pyramidSlot.cardId === null || !isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter)) return INVALID_MOVE;
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -281,13 +312,13 @@ export const DuelForMiddleEarth: Game<GameState> = {
       if (tile.effectType === 'IMMEDIATE') {
           switch(tile.id) {
               case 't-ent-1': G.extraTurn = true; break;
-              case 't-wiz-1': if (playerSide === 'FELLOWSHIP') G.questTrack.fellowship += 2; else G.questTrack.sauron += 2; break;
+              case 't-wiz-1': advanceQuestTrack(G, playerSide, 2); break;
               case 't-wiz-2': if (G.discardPile.length > 0) G.pendingDiscardTake = true; break;
               case 't-wiz-3': G.pendingPlacement = Object.keys(G.map); G.pendingPlacementCount = 2; break;
               case 't-ent-3': G.entChoicesCount = 3; break;
           }
       }
-      const hasFollowUp = G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.entChoicesCount > 0 || G.pendingDiscardTake;
+      const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.entChoicesCount > 0 || G.pendingDiscardTake || G.pendingFortressRemoval;
       if (!hasFollowUp) {
           if (G.extraTurn) { G.extraTurn = false; G.log.push(`${playerSide} extra turn!`); }
           else events.endTurn();
@@ -313,7 +344,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       G.pendingPlacementCount = 0;
       G.pendingPlacement = null;
 
-      const hasFollowUp = G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
+      const hasFollowUp = G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0 || G.pendingFortressRemoval;
 
       if (!hasFollowUp) {
         if (G.extraTurn) {
@@ -326,7 +357,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
     },
 
     buildLandmark: ({ G, ctx, events }, landmarkId: string) => {
-      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick) return INVALID_MOVE;
+      if (G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingFortressRemoval) return INVALID_MOVE;
       if (!G.availableLandmarks.includes(landmarkId)) return INVALID_MOVE;
 
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -349,13 +380,14 @@ export const DuelForMiddleEarth: Game<GameState> = {
       let follow = false;
       switch(landmark.id) {
           case 'l-barad-dur': if (G.discardPile.length > 0) { G.pendingDiscardTake = true; follow = true; } break;
-          case 'l-minas-tirith': G.map.GONDOR.units[playerSide]++; if (playerSide === 'FELLOWSHIP') G.questTrack.fellowship += 2; else G.questTrack.sauron += 2; break;
+          case 'l-minas-tirith': G.map.GONDOR.units[playerSide]++; advanceQuestTrack(G, playerSide, 2); break;
           case 'l-erebor': player.coins += 5; G.pendingMovementsCount++; follow = true; break;
-          case 'l-isengard': if (playerSide === 'FELLOWSHIP') G.questTrack.fellowship++; else G.questTrack.sauron++; G.pendingGreyRemoval = true; follow = true; break;
+          case 'l-isengard': advanceQuestTrack(G, playerSide, 1); G.pendingGreyRemoval = true; follow = true; break;
           case 'l-helms-deep': G.map.ROHAN.units[playerSide] += 3; break;
           case 'l-bree': G.map.ARNOR.units[playerSide] += 2; G.pendingMovementsCount += 2; follow = true; break;
           case 'l-grey-havens': G.pendingRacePick = 'GREY_HAVENS_CHOOSE_RACE'; follow = true; break;
       }
+      if (G.pendingFortressRemoval) follow = true;
       if (!follow) { if (G.extraTurn) { G.extraTurn = false; } else events.endTurn(); }
     },
 
@@ -381,7 +413,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       if (!region || region.units[side] <= 0) return INVALID_MOVE;
       region.units[side]--;
       G.pendingRemovalCount--;
-      if (G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && G.entChoicesCount === 0) events.endTurn();
+      if (G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && G.entChoicesCount === 0 && !G.pendingFortressRemoval) events.endTurn();
     },
 
     moveUnit: ({ G, ctx, events }, { fromRegionId, toRegionId }: { fromRegionId: string, toRegionId: string }) => {
@@ -393,7 +425,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
       if (to.units[enemySide] > 0) to.units[enemySide]--; else to.units[playerSide]++;
       G.pendingMovementsCount--;
-      if (G.pendingMovementsCount === 0 && G.pendingRemovalCount === 0 && G.entChoicesCount === 0) events.endTurn();
+      if (G.pendingMovementsCount === 0 && G.pendingRemovalCount === 0 && G.entChoicesCount === 0 && !G.pendingFortressRemoval) events.endTurn();
     },
 
     takeDiscardCard: ({ G, ctx, events }, cardId: string) => {
@@ -406,7 +438,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
         player.cards.push(cardId);
         G.pendingDiscardTake = false;
         G.log.push(`${playerSide} retrieved ${G.cardPool[cardId].name} from discard`);
-        if (!G.pendingPlacement && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick) {
+        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingFortressRemoval) {
             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
         }
     },
@@ -422,22 +454,38 @@ export const DuelForMiddleEarth: Game<GameState> = {
         G.discardPile.push(cardId);
         G.pendingGreyRemoval = false;
         G.log.push(`${playerSide} removed ${G.cardPool[cardId].name} from ${enemySide}`);
-        if (!G.pendingPlacement && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick) {
+        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingFortressRemoval) {
+            if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
+        }
+    },
+
+    removeFortress: ({ G, ctx, events }, regionId: string) => {
+        if (!G.pendingFortressRemoval) return INVALID_MOVE;
+        const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
+        const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
+        const region = G.map[regionId];
+        if (!region || !region.hasFortress[enemySide]) return INVALID_MOVE;
+        
+        region.hasFortress[enemySide] = false;
+        G.pendingFortressRemoval = false;
+        G.log.push(`${playerSide} removed ${enemySide} fortress from ${region.name}`);
+        
+        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingDiscardTake && !G.pendingGreyRemoval && G.entChoicesCount === 0) {
             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
         }
     },
 
     skipPendingActions: ({ G, events }) => {
       G.pendingPlacement = null; G.pendingPlacementCount = 0; G.pendingRemovalCount = 0;
-      G.pendingMovementsCount = 0; G.entChoicesCount = 0; G.pendingRacePick = null;
+      G.pendingMovementsCount = 0; G.entChoicesCount = 0; G.pendingRacePick = null; G.pendingFortressRemoval = false;
       events.endTurn();
     },
   },
 
   endIf: ({ G }) => {
     if (!G || !G.questTrack) return undefined;
-    if (G.questTrack.fellowship >= 12) return { winner: 'FELLOWSHIP', reason: 'Quest of the Ring' };
-    if (G.questTrack.sauron >= 12) return { winner: 'SAURON', reason: 'Quest of the Ring' };
+    if (G.questTrack.fellowship >= 14) return { winner: 'FELLOWSHIP', reason: 'Quest of the Ring' };
+    if (G.questTrack.sauron >= 14) return { winner: 'SAURON', reason: 'Quest of the Ring' };
     for (const side of ['FELLOWSHIP', 'SAURON'] as Side[]) {
       const player = G.players[side];
       let races = new Set(player.races);

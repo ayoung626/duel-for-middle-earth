@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { GameState, RaceSymbol, SkillSymbol, Side, Landmark, Card } from '@/game/types';
 import { clsx } from 'clsx';
 import { calculateCardCost, isCardAvailable, canAffordLandmark, calculateLandmarkCost } from '@/game/Game';
-import { TowerControl as Tower, Castle, Coins, Shield, Sword, Anchor, Mountain, Map, Trees, Skull } from 'lucide-react';
+import { TowerControl as Tower, Castle, Coins, Shield, Sword, Anchor, Mountain, Map as MapIcon, Trees, Skull } from 'lucide-react';
 
 interface GameBoardProps {
   G: GameState;
@@ -28,7 +28,7 @@ const getCardColorClass = (type: string) => {
 const getRegionIcon = (regionId: string) => {
   switch(regionId) {
     case 'LINDON': return <Anchor size={12} />;
-    case 'ARNOR': return <Map size={12} />;
+    case 'ARNOR': return <MapIcon size={12} />;
     case 'ENEDWAITH': return <Trees size={12} />;
     case 'GONDOR': return <Castle size={12} />;
     case 'ROHAN': return <Sword size={12} />;
@@ -36,7 +36,15 @@ const getRegionIcon = (regionId: string) => {
     case 'MORDOR': return <Skull size={12} />;
     default: return <Shield size={12} />;
   }
-}
+};
+
+const getBonusIcon = (space: number) => {
+   if (space === 3) return <Coins size={8} />;
+   if (space === 6) return <Sword size={8} />;
+   if (space === 9) return <span className="font-black text-[6px]">TURN</span>;
+   if (space === 12) return <Castle size={8} className="text-red-500" />;
+   return null;
+};
 
 export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   const currentPlayerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -53,8 +61,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   const isPendingPlacement = G.pendingPlacement !== null;
   const isPendingRemoval = G.pendingRemovalCount > 0;
   const isPendingMovement = G.pendingMovementsCount > 0;
+  const isPendingFortressRemoval = G.pendingFortressRemoval;
   
-  const isMapAction = isPendingPlacement || isPendingRemoval || isPendingMovement;
+  const isMapAction = isPendingPlacement || isPendingRemoval || isPendingMovement || isPendingFortressRemoval;
   const isModalAction = !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
   const hasAnyPending: boolean = !!(isMapAction || isModalAction);
 
@@ -75,6 +84,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
         if (regionId === moveSourceRegionId) setMoveSourceRegionId(null);
         else { moves.moveUnit({ fromRegionId: moveSourceRegionId, toRegionId: regionId }); setMoveSourceRegionId(null); }
       }
+    } else if (isPendingFortressRemoval) {
+      if (G.map[regionId].hasFortress[enemySide]) moves.removeFortress(regionId);
     }
   };
 
@@ -128,22 +139,52 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   return (
     <div className="h-screen bg-stone-900 text-stone-100 p-2 flex flex-col gap-2 font-serif select-none overflow-hidden relative">
       
-      {/* Horizontal Quest Track */}
+      {/* 29-Slot Sliding Quest Track */}
       <div className="bg-stone-800/80 p-2 rounded-xl border border-stone-700 flex flex-col items-center shadow-lg shrink-0">
         <h3 className="text-[8px] font-bold mb-1 text-stone-500 uppercase tracking-[0.2em]">Quest of the Ring</h3>
-        <div className="flex justify-between w-full max-w-4xl px-8 relative h-3 items-center bg-stone-950/50 rounded-full border border-stone-700/50">
-          {[...Array(13)].map((_, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center relative h-full justify-center">
-              <div className="w-0.5 h-1.5 bg-stone-700 rounded-full" />
-              <span className={clsx("text-[7px] absolute -bottom-3 font-mono", (i === 12) ? "text-yellow-500 font-bold" : "text-stone-600")}>{i}</span>
-              {G.questTrack.fellowship === i && (
-                 <div className="absolute -top-1 w-5 h-5 bg-yellow-500 rounded-full z-20 flex items-center justify-center text-stone-950 font-black text-[9px] shadow-lg border border-stone-900">F</div>
-              )}
-              {G.questTrack.sauron === i && (
-                 <div className="absolute -top-1 w-5 h-5 bg-red-600 rounded-full z-10 flex items-center justify-center text-white font-black text-[9px] shadow-lg border border-stone-900">S</div>
-              )}
-            </div>
-          ))}
+        <div className="flex w-full max-w-4xl gap-0.5 justify-center">
+          {Array.from({ length: 29 }).map((_, i) => {
+             const isPiece3 = i >= 14;
+             const piece3Space = i - 14;
+             
+             const isPiece2 = i >= G.questTrack.fellowship && i <= G.questTrack.fellowship + 14;
+             const piece2Space = i - G.questTrack.fellowship;
+             
+             const isNazgul = isPiece2 && piece2Space === G.questTrack.sauron;
+             const isFrodoSam = isPiece2 && piece2Space === 14;
+             const isMountDoom = i === 28;
+
+             return (
+                <div key={i} className="flex-1 flex flex-col gap-0.5 items-center min-w-[14px]">
+                   {/* Piece 2 (Sauron Track) */}
+                   <div className={clsx(
+                       "w-full h-5 rounded-t transition-all relative flex items-center justify-center border-t border-x border-b border-b-stone-900", 
+                       isPiece2 ? "bg-red-950/60 border-red-900/50" : "border-transparent"
+                    )}>
+                       {isPiece2 && (
+                           <>
+                               <div className="opacity-40 text-red-400">{getBonusIcon(piece2Space)}</div>
+                               {isNazgul && <div className="absolute inset-0 bg-red-600 shadow-[0_0_8px_red] rounded z-20 flex items-center justify-center text-white text-[8px] font-black border border-red-400">S</div>}
+                               {isFrodoSam && <div className="absolute inset-0 bg-yellow-500 shadow-[0_0_8px_yellow] rounded-t z-20 flex items-center justify-center text-stone-900 text-[8px] font-black border-t border-x border-yellow-300">F</div>}
+                           </>
+                       )}
+                   </div>
+
+                   {/* Piece 3 (Fellowship Track) */}
+                   <div className={clsx(
+                       "w-full h-5 rounded-b transition-all relative flex items-center justify-center border-b border-x", 
+                       isPiece3 ? "bg-stone-800 border-stone-700" : "border-transparent"
+                    )}>
+                       {isPiece3 && (
+                           <>
+                               <div className="opacity-40 text-stone-400">{getBonusIcon(piece3Space)}</div>
+                               {isMountDoom && <div className="absolute inset-0 bg-orange-600 rounded flex items-center justify-center text-white text-[7px] font-black border border-orange-400 animate-pulse">DOOM</div>}
+                           </>
+                       )}
+                   </div>
+                </div>
+             );
+          })}
         </div>
       </div>
 
@@ -157,6 +198,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                   {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNITS`}
                   {isPendingRemoval && `REMOVE ${G.pendingRemovalCount} ENEMY UNITS`}
                   {isPendingMovement && `MANEUVER ${G.pendingMovementsCount} TROOPS`}
+                  {isPendingFortressRemoval && `DESTROY ENEMY FORTRESS`}
               </h2>
               <p className="text-[7px] uppercase font-bold text-red-100 opacity-80 mt-0.5">Click the map to execute actions</p>
               <button 
@@ -173,7 +215,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
            {Object.values(G.map).map(region => {
              const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
                                     (isPendingRemoval && region.units[enemySide] > 0) ||
-                                    (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : region.id !== moveSourceRegionId));
+                                    (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : region.id !== moveSourceRegionId)) ||
+                                    (isPendingFortressRemoval && region.hasFortress[enemySide]);
 
              return (
               <div key={region.id} className="flex items-center gap-2">
@@ -270,6 +313,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                                        <div className="mt-auto flex flex-wrap gap-0.5 justify-center">
                                           {bonus?.coins && <span className="bg-yellow-500 text-yellow-950 px-0.5 rounded text-[7px] font-bold">+{bonus.coins}C</span>}
                                           {bonus?.race && <span className="bg-black/30 px-0.5 rounded text-[7px] font-bold">{String(bonus.race).substring(0,3)}</span>}
+                                          {bonus?.quest && <span className="bg-blue-900 px-0.5 rounded text-[7px] font-bold">Q{bonus.quest}</span>}
                                        </div>
                                     </div>
                                   ) : <div className="text-stone-800 font-bold text-3xl opacity-10">?</div>}
