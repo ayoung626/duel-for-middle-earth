@@ -12,13 +12,13 @@ import {
 import { FaRing, FaMale, FaUndo, FaDragon, FaHorse } from 'react-icons/fa';
 
 const MAP_COORDS: Record<string, { x: number, y: number }> = {
-  LINDON: { x: 20, y: 30 },
-  ARNOR: { x: 45, y: 20 },
-  ENEDWAITH: { x: 35, y: 55 },
-  RHOVANION: { x: 75, y: 30 },
-  ROHAN: { x: 60, y: 55 },
-  GONDOR: { x: 50, y: 80 },
-  MORDOR: { x: 80, y: 75 },
+  LINDON: { x: 20, y: 25 },
+  ARNOR: { x: 45, y: 15 },
+  ENEDWAITH: { x: 35, y: 45 },
+  RHOVANION: { x: 75, y: 25 },
+  ROHAN: { x: 60, y: 45 },
+  GONDOR: { x: 50, y: 65 },
+  MORDOR: { x: 80, y: 60 },
 };
 
 const MAP_CONNECTIONS: [string, string][] = [
@@ -486,10 +486,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
         </div>
 
         {/* Pyramid Center */}
-        <div className="col-span-7 flex flex-col items-center justify-center p-2 bg-stone-950/40 rounded-2xl border border-stone-800/40 shadow-inner h-full relative overflow-hidden">
-          <div className="flex flex-col items-center origin-center scale-[0.8] lg:scale-95 xl:scale-105">
+        <div className="col-span-7 flex flex-col items-center justify-center p-2 bg-stone-950/40 rounded-2xl border border-stone-800/40 shadow-inner h-full relative overflow-y-auto">
+          <div className="flex flex-col items-center mx-auto py-4">
               {G.pyramid.map((row, rowIndex) => (
-                  <div key={rowIndex} className="flex gap-3 mb-[-32px] relative" style={{ zIndex: rowIndex }}>
+                  <div key={rowIndex} className="flex gap-3 mb-[-24px] relative" style={{ zIndex: rowIndex }}>
                       {row.map((slot, colIndex) => {
                           if (!slot.cardId) return <div key={colIndex} className="w-20 h-28 invisible" />;
                           const available = isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter);
