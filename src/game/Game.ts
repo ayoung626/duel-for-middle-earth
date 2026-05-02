@@ -145,6 +145,17 @@ const updateAvailableLandmarks = (G: GameState) => {
     }
 };
 
+const resolveConflict = (region: GameState['map'][string], playerSide: Side, amount: number) => {
+  const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
+  for (let i = 0; i < amount; i++) {
+    if (region.units[enemySide] > 0) {
+      region.units[enemySide]--;
+    } else {
+      region.units[playerSide]++;
+    }
+  }
+};
+
 const advanceQuestTrack = (G: GameState, side: Side, amount: number) => {
   const sideKey = side.toLowerCase() as 'fellowship' | 'sauron';
   const oldVal = G.questTrack[sideKey];
@@ -380,11 +391,11 @@ export const DuelForMiddleEarth: Game<GameState> = {
       let follow = false;
       switch(landmark.id) {
           case 'l-barad-dur': if (G.discardPile.length > 0) { G.pendingDiscardTake = true; follow = true; } break;
-          case 'l-minas-tirith': G.map.GONDOR.units[playerSide]++; advanceQuestTrack(G, playerSide, 2); break;
+          case 'l-minas-tirith': resolveConflict(G.map.GONDOR, playerSide, 1); advanceQuestTrack(G, playerSide, 2); break;
           case 'l-erebor': player.coins += 5; G.pendingMovementsCount++; follow = true; break;
           case 'l-isengard': advanceQuestTrack(G, playerSide, 1); G.pendingGreyRemoval = true; follow = true; break;
-          case 'l-helms-deep': G.map.ROHAN.units[playerSide] += 3; break;
-          case 'l-bree': G.map.ARNOR.units[playerSide] += 2; G.pendingMovementsCount += 2; follow = true; break;
+          case 'l-helms-deep': resolveConflict(G.map.ROHAN, playerSide, 3); break;
+          case 'l-bree': resolveConflict(G.map.ARNOR, playerSide, 2); G.pendingMovementsCount += 2; follow = true; break;
           case 'l-grey-havens': G.pendingRacePick = 'GREY_HAVENS_CHOOSE_RACE'; follow = true; break;
       }
       if (G.pendingFortressRemoval) follow = true;
@@ -433,7 +444,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
         const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
         const player = G.players[playerSide];
         const cardIdx = G.discardPile.indexOf(cardId);
-        if (cardIdx === -1) return INVALID_MOVE;
+        if (cardIdx === -1 || !G.cardPool[cardId]) return INVALID_MOVE;
         G.discardPile.splice(cardIdx, 1);
         player.cards.push(cardId);
         G.pendingDiscardTake = false;
@@ -449,7 +460,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
         const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
         const enemy = G.players[enemySide];
         const cardIdx = enemy.cards.indexOf(cardId);
-        if (cardIdx === -1 || G.cardPool[cardId].type !== 'GREY') return INVALID_MOVE;
+        if (cardIdx === -1 || !G.cardPool[cardId] || G.cardPool[cardId].type !== 'GREY') return INVALID_MOVE;
         enemy.cards.splice(cardIdx, 1);
         G.discardPile.push(cardId);
         G.pendingGreyRemoval = false;
@@ -478,6 +489,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
     skipPendingActions: ({ G, events }) => {
       G.pendingPlacement = null; G.pendingPlacementCount = 0; G.pendingRemovalCount = 0;
       G.pendingMovementsCount = 0; G.entChoicesCount = 0; G.pendingRacePick = null; G.pendingFortressRemoval = false;
+      G.pendingGreyRemoval = false; G.pendingDiscardTake = false;
       events.endTurn();
     },
   },

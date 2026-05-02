@@ -6,10 +6,11 @@ import { clsx } from 'clsx';
 import { calculateCardCost, isCardAvailable, canAffordLandmark, calculateLandmarkCost } from '@/game/Game';
 import { 
   TowerControl as Tower, Castle, Coins, Shield, Sword, Anchor, Mountain, Map as MapIcon, Trees, Skull,
-  Ship, HardHat, Bug, PawPrint, TreePine, Leaf, FlaskConical, Hammer, Volume2, Coffee, Globe, Sprout, Feather,
+  Ship, Bug, PawPrint, TreePine, Leaf, FlaskConical, Hammer, Volume2, Globe, Sprout, Feather,
   Heart, Hand, VenetianMask, BookOpen, Crown, ArrowRight, Target, Backpack, Fish, Anvil, Music, Soup, Magnet, Archive, Flame, Tent, Axe, ScrollText, Clover, Circle
 } from 'lucide-react';
 import { FaRing, FaMale, FaUndo, FaDragon, FaHorse } from 'react-icons/fa';
+import { GiSmokingPipe, GiVisoredHelm } from 'react-icons/gi';
 
 const MAP_COORDS: Record<string, { x: number, y: number }> = {
   LINDON: { x: 20, y: 25 },
@@ -56,7 +57,7 @@ const getCardColorClass = (type: string) => {
 const getRegionIcon = (regionId: string, size = 12, className = "") => {
   switch(regionId) {
     case 'LINDON': return <Ship size={size} className={className} />;
-    case 'ARNOR': return <HardHat size={size} className={className} />;
+    case 'ARNOR': return <GiVisoredHelm size={size} className={className} />;
     case 'ENEDWAITH': return <FaDragon size={size} className={className} />;
     case 'GONDOR': return <TreePine size={size} className={className} />;
     case 'ROHAN': return <FaHorse size={size} className={className} />;
@@ -71,7 +72,7 @@ const getRaceIcon = (race: RaceSymbol, size = 12, className = "") => {
     case 'ELF': return <FlaskConical size={size} className={className} />;
     case 'DWARF': return <Hammer size={size} className={className} />;
     case 'HUMAN': return <FaMale size={size} className={className} />;
-    case 'HOBBIT': return <Coffee size={size} className={className} />;
+    case 'HOBBIT': return <GiSmokingPipe size={size} className={className} />;
     case 'WIZARD': return <Globe size={size} className={className} />;
     case 'ENT': return <Sprout size={size} className={className} />;
     case 'EAGLE': return <Feather size={size} className={className} />;
@@ -94,7 +95,7 @@ const getChainIcon = (symbol: string, size = 12, className = "") => {
   switch(symbol) {
     case 'DAGGER': return <Sword size={size} className={className} />;
     case 'BOW': return <Target size={size} className={className} />;
-    case 'HELMET': return <HardHat size={size} className={className} />;
+    case 'HELMET': return <GiVisoredHelm size={size} className={className} />;
     case 'HORSE': return <FaHorse size={size} className={className} />;
     case 'BACKPACK': return <Backpack size={size} className={className} />;
     case 'FISH': return <Fish size={size} className={className} />;
@@ -148,7 +149,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   };
 
   const handleRegionClick = (regionId: string) => {
-    if (isPendingPlacement && G.pendingPlacement!.includes(regionId)) {
+    if (isPendingFortressRemoval) {
+      if (G.map[regionId].hasFortress[enemySide]) moves.removeFortress(regionId);
+    } else if (isPendingPlacement && G.pendingPlacement!.includes(regionId)) {
       moves.placeUnit(regionId);
     } else if (isPendingRemoval) {
       if (G.map[regionId].units[enemySide] > 0) moves.removeUnit({ regionId, side: enemySide });
@@ -159,8 +162,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
         if (regionId === moveSourceRegionId) setMoveSourceRegionId(null);
         else { moves.moveUnit({ fromRegionId: moveSourceRegionId, toRegionId: regionId }); setMoveSourceRegionId(null); }
       }
-    } else if (isPendingFortressRemoval) {
-      if (G.map[regionId].hasFortress[enemySide]) moves.removeFortress(regionId);
     }
   };
 
@@ -404,11 +405,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                ))}
            </svg>
            
-           {Object.values(G.map).map(region => {
-             const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
-                                    (isPendingRemoval && region.units[enemySide] > 0) ||
-                                    (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : G.map[moveSourceRegionId].adjacent.includes(region.id))) ||
-                                    (isPendingFortressRemoval && region.hasFortress[enemySide]);
+            {Object.values(G.map).map(region => {
+              const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
+                                     (isPendingRemoval && region.units[enemySide] > 0) ||
+                                     (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : G.map[moveSourceRegionId].adjacent.includes(region.id))) ||
+                                     (isPendingFortressRemoval && region.hasFortress[enemySide]);
 
              const coords = MAP_COORDS[region.id];
 
@@ -582,10 +583,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                 <div>
                    <h2 className="text-xl font-black mb-6 uppercase tracking-widest">Take a Card from Discard</h2>
                    <div className="flex flex-wrap gap-2 justify-center max-h-96 overflow-y-auto p-4">
-                      {G.discardPile.map(cId => {
-                        const card = G.cardPool[cId];
-                        return (
-                          <div key={cId} onClick={() => moves.takeDiscardCard(cId)} className={clsx("w-20 h-28 rounded-lg border-2 shadow-xl flex flex-col text-center p-1 cursor-pointer transition-all relative overflow-hidden hover:scale-110 ring-2 ring-white/5 z-10", getCardColorClass(card.type))}>
+                       {G.discardPile.filter(cId => G.cardPool[cId]).map(cId => {
+                         const card = G.cardPool[cId];
+                         return (
+                           <div key={cId} onClick={() => moves.takeDiscardCard(cId)} className={clsx("w-20 h-28 rounded-lg border-2 shadow-xl flex flex-col text-center p-1 cursor-pointer transition-all relative overflow-hidden hover:scale-110 ring-2 ring-white/5 z-10", getCardColorClass(card.type))}>
                               {card.chainsFrom && (
                                 <div className="absolute bottom-0.5 left-0.5 bg-black/50 p-0.5 rounded shadow">
                                    {getChainIcon(card.chainsFrom, 8, "text-stone-300 drop-shadow")}
@@ -612,7 +613,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                 <div>
                    <h2 className="text-xl font-black mb-6 uppercase tracking-widest text-red-500">Remove Enemy Grey Card</h2>
                    <div className="flex gap-2 justify-center flex-wrap p-4">
-                      {G.players[enemySide].cards.filter(cId => G.cardPool[cId].type === 'GREY').map(cId => {
+                       {G.players[enemySide].cards.filter(cId => G.cardPool[cId]?.type === 'GREY').map(cId => {
                          const card = G.cardPool[cId];
                          return (
                             <div key={cId} onClick={() => moves.removeGreyCard(cId)} className={clsx("w-20 h-28 rounded-lg border-2 shadow-xl flex flex-col text-center p-1 cursor-pointer transition-all relative overflow-hidden hover:scale-110 hover:border-red-500 ring-2 ring-red-500/20 z-10", getCardColorClass(card.type))}>
@@ -676,7 +677,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
             
             <div className="flex gap-3 w-full">
               <button className="flex-1 bg-stone-700 py-3 rounded-xl font-black uppercase tracking-widest hover:bg-stone-600 transition-all shadow-lg" onClick={() => { moves.discardCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex }); setSelectedCard(null); }}>Discard</button>
-              <button className={clsx("flex-1 py-3 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg", canAffordCard ? "bg-yellow-700 hover:bg-yellow-600 text-yellow-50 shadow-yellow-900/50" : "bg-stone-800 text-stone-600 opacity-50 cursor-not-allowed")} disabled={!canAffordCard} onClick={() => { moves.takeCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex }); setSelectedCard(null); }}>{canAffordCard ? 'Acquire' : 'No Gold'}</button>
+              <button className={clsx("flex-1 py-3 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg", canAffordCard ? "bg-yellow-700 hover:bg-yellow-600 text-yellow-50 shadow-yellow-900/50" : "bg-stone-800 text-stone-600 opacity-50 cursor-not-allowed")} disabled={!canAffordCard} onClick={() => { moves.takeCard({ rowIndex: selectedCard.rowIndex, colIndex: selectedCard.colIndex }); setSelectedCard(null); }}>{canAffordCard ? `Acquire (${currentCost} C)` : 'Not Enough Gold'}</button>
             </div>
             <button className="mt-6 text-[10px] text-stone-500 uppercase tracking-widest font-bold hover:text-stone-300 transition-colors" onClick={() => setSelectedCard(null)}>Dismiss</button>
           </div>
