@@ -153,8 +153,8 @@ export const INITIAL_STATE: GameState = {
   pendingDiscardTake: false,
   pendingRacePick: null,
   pendingRaceSelectionPool: [],
-  pendingGreyRemoval: false,
-  pendingFortressRemoval: false,
-  entChoicesCount: 0,
+   pendingGreyRemoval: false,
+   pendingLandmarkRemoval: false,
+   entChoicesCount: 0,
   extraTurn: false,
 };

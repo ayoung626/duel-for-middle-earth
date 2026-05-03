@@ -134,12 +134,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   const currentCost = selectedFullCard ? calculateCardCost(selectedFullCard, G.players[currentPlayerSide], G.cardPool) : 0;
   const canAffordCard = selectedFullCard ? G.players[currentPlayerSide].coins >= currentCost : false;
 
-  const isPendingPlacement = G.pendingPlacement !== null;
-  const isPendingRemoval = G.pendingRemovalCount > 0;
-  const isPendingMovement = G.pendingMovementsCount > 0;
-  const isPendingFortressRemoval = G.pendingFortressRemoval;
-  
-  const isMapAction = isPendingPlacement || isPendingRemoval || isPendingMovement || isPendingFortressRemoval;
+   const isPendingPlacement = G.pendingPlacement !== null;
+   const isPendingRemoval = G.pendingRemovalCount > 0;
+   const isPendingMovement = G.pendingMovementsCount > 0;
+   const isPendingLandmarkRemoval = G.pendingLandmarkRemoval;
+   
+   const isMapAction = isPendingPlacement || isPendingRemoval || isPendingMovement || isPendingLandmarkRemoval;
   const isModalAction = !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0;
   const hasAnyPending: boolean = !!(isMapAction || isModalAction);
 
@@ -148,22 +148,22 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
     if (available) setSelectedCard({ rowIndex, colIndex, cardId });
   };
 
-  const handleRegionClick = (regionId: string) => {
-    if (isPendingFortressRemoval) {
-      if (G.map[regionId].hasFortress[enemySide]) moves.removeFortress(regionId);
-    } else if (isPendingPlacement && G.pendingPlacement!.includes(regionId)) {
-      moves.placeUnit(regionId);
-    } else if (isPendingRemoval) {
-      if (G.map[regionId].units[enemySide] > 0) moves.removeUnit({ regionId, side: enemySide });
-    } else if (isPendingMovement) {
-      if (!moveSourceRegionId) {
-        if (G.map[regionId].units[currentPlayerSide] > 0) setMoveSourceRegionId(regionId);
-      } else {
-        if (regionId === moveSourceRegionId) setMoveSourceRegionId(null);
-        else { moves.moveUnit({ fromRegionId: moveSourceRegionId, toRegionId: regionId }); setMoveSourceRegionId(null); }
-      }
-    }
-  };
+   const handleRegionClick = (regionId: string) => {
+     if (isPendingLandmarkRemoval) {
+       // Handled by modal, not map click
+     } else if (isPendingPlacement && G.pendingPlacement!.includes(regionId)) {
+       moves.placeUnit(regionId);
+     } else if (isPendingRemoval) {
+       if (G.map[regionId].units[enemySide] > 0) moves.removeUnit({ regionId, side: enemySide });
+     } else if (isPendingMovement) {
+       if (!moveSourceRegionId) {
+         if (G.map[regionId].units[currentPlayerSide] > 0) setMoveSourceRegionId(regionId);
+       } else {
+         if (regionId === moveSourceRegionId) setMoveSourceRegionId(null);
+         else { moves.moveUnit({ fromRegionId: moveSourceRegionId, toRegionId: regionId }); setMoveSourceRegionId(null); }
+       }
+     }
+   };
 
   const renderCardEffect = (card: Card) => {
       if (card.type === 'BLUE') {
@@ -382,10 +382,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
          {isMapAction && !isModalAction && (
            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 border border-red-400 px-8 py-3 rounded-full shadow-2xl z-50 pointer-events-none flex flex-col items-center">
               <h2 className="font-black tracking-widest text-xs uppercase text-white shadow-sm">
-                  {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNITS`}
-                  {isPendingRemoval && `REMOVE ${G.pendingRemovalCount} ENEMY UNITS`}
-                  {isPendingMovement && `MANEUVER ${G.pendingMovementsCount} TROOPS`}
-                  {isPendingFortressRemoval && `DESTROY ENEMY FORTRESS`}
+        {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNITS`}
+                   {isPendingRemoval && `REMOVE ${G.pendingRemovalCount} ENEMY UNITS`}
+                   {isPendingMovement && `MANEUVER ${G.pendingMovementsCount} TROOPS`}
+                   {isPendingLandmarkRemoval && `DESTROY ENEMY LANDMARK`}
               </h2>
               <p className="text-[7px] uppercase font-bold text-red-100 opacity-80 mt-0.5">Click the map to execute actions</p>
               <button 
@@ -405,11 +405,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                ))}
            </svg>
            
-            {Object.values(G.map).map(region => {
-              const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
-                                     (isPendingRemoval && region.units[enemySide] > 0) ||
-                                     (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : G.map[moveSourceRegionId].adjacent.includes(region.id))) ||
-                                     (isPendingFortressRemoval && region.hasFortress[enemySide]);
+             {Object.values(G.map).map(region => {
+               const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
+                                      (isPendingRemoval && region.units[enemySide] > 0) ||
+                                      (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : G.map[moveSourceRegionId].adjacent.includes(region.id)));
 
              const coords = MAP_COORDS[region.id];
 
@@ -733,6 +732,24 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
             </div>
           </div>
         </div>
+        )}
+
+       {/* Landmark Removal Modal */}
+       {G.pendingLandmarkRemoval && (
+         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-md">
+           <div className="bg-stone-800 border-2 border-stone-600 rounded-3xl p-8 flex flex-col items-center max-w-2xl w-full shadow-2xl">
+             <Tower className="mx-auto mb-4 text-red-500" size={48} />
+             <h2 className="text-2xl font-black uppercase tracking-widest text-red-500 mb-6">Remove Enemy Landmark</h2>
+             <div className="grid grid-cols-3 gap-3 w-full">
+               {G.landmarks.filter(l => l.builtBy === enemySide).map(l => (
+                 <button key={l.id} onClick={() => moves.removeLandmark(l.id)} className="bg-stone-900 border-2 border-stone-700 p-4 rounded-xl hover:border-red-500 transition-all text-left">
+                   <div className="font-black text-yellow-500 text-sm uppercase mb-1">{G.map[l.regionId]?.name}: {l.name}</div>
+                   <div className="text-[10px] text-stone-400">{l.description}</div>
+                 </button>
+               ))}
+             </div>
+           </div>
+         </div>
        )}
 
        {/* Game Over Screen */}

@@ -177,10 +177,10 @@ const advanceQuestTrack = (G: GameState, side: Side, amount: number) => {
     G.extraTurn = true;
     G.log.push(`${side} reached Ring space 9: extra turn`);
   }
-  if (oldVal < 12 && newVal >= 12) {
-    G.pendingFortressRemoval = true;
-    G.log.push(`${side} reached Ring space 12: remove enemy fortress`);
-  }
+   if (oldVal < 12 && newVal >= 12) {
+     G.pendingLandmarkRemoval = true;
+     G.log.push(`${side} reached Ring space 12: remove enemy landmark`);
+   }
 };
 
 const checkChapterEnd = (G: GameState) => {
@@ -206,7 +206,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
   },
   moves: {
     takeCard: ({ G, ctx, events }, { rowIndex, colIndex }: { rowIndex: number, colIndex: number }) => {
-      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingFortressRemoval) return INVALID_MOVE;
+      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingLandmarkRemoval) return INVALID_MOVE;
       const pyramidSlot = G.pyramid[rowIndex][colIndex];
       if (!pyramidSlot || pyramidSlot.cardId === null || !isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter)) return INVALID_MOVE;
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -282,7 +282,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
           G.pendingPlacementCount++; 
       }
 
-      const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || triggerRaceTile || G.pendingFortressRemoval;
+      const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || triggerRaceTile || G.pendingLandmarkRemoval;
       if (!hasFollowUp) {
           if (G.extraTurn) { G.extraTurn = false; G.log.push(`${playerSide} extra turn!`); }
           else events.endTurn();
@@ -290,7 +290,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
     },
 
     discardCard: ({ G, ctx, events }, { rowIndex, colIndex }: { rowIndex: number, colIndex: number }) => {
-      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingFortressRemoval) return INVALID_MOVE;
+      if (G.pendingPlacement || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingLandmarkRemoval) return INVALID_MOVE;
       const pyramidSlot = G.pyramid[rowIndex][colIndex];
       if (!pyramidSlot || pyramidSlot.cardId === null || !isCardAvailable(G.pyramid, rowIndex, colIndex, G.currentChapter)) return INVALID_MOVE;
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -329,7 +329,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
               case 't-ent-3': G.entChoicesCount = 3; break;
           }
       }
-      const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.entChoicesCount > 0 || G.pendingDiscardTake || G.pendingFortressRemoval;
+      const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.entChoicesCount > 0 || G.pendingDiscardTake || G.pendingLandmarkRemoval;
       if (!hasFollowUp) {
           if (G.extraTurn) { G.extraTurn = false; G.log.push(`${playerSide} extra turn!`); }
           else events.endTurn();
@@ -355,7 +355,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       G.pendingPlacementCount = 0;
       G.pendingPlacement = null;
 
-      const hasFollowUp = G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0 || G.pendingFortressRemoval;
+      const hasFollowUp = G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0 || G.pendingLandmarkRemoval;
 
       if (!hasFollowUp) {
         if (G.extraTurn) {
@@ -368,7 +368,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
     },
 
     buildLandmark: ({ G, ctx, events }, landmarkId: string) => {
-      if (G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingFortressRemoval) return INVALID_MOVE;
+      if (G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingLandmarkRemoval) return INVALID_MOVE;
       if (!G.availableLandmarks.includes(landmarkId)) return INVALID_MOVE;
 
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
@@ -398,7 +398,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
           case 'l-bree': resolveConflict(G.map.ARNOR, playerSide, 2); G.pendingMovementsCount += 2; follow = true; break;
           case 'l-grey-havens': G.pendingRacePick = 'GREY_HAVENS_CHOOSE_RACE'; follow = true; break;
       }
-      if (G.pendingFortressRemoval) follow = true;
+      if (G.pendingLandmarkRemoval) follow = true;
       if (!follow) { if (G.extraTurn) { G.extraTurn = false; } else events.endTurn(); }
     },
 
@@ -424,7 +424,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       if (!region || region.units[side] <= 0) return INVALID_MOVE;
       region.units[side]--;
       G.pendingRemovalCount--;
-      if (G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && G.entChoicesCount === 0 && !G.pendingFortressRemoval) events.endTurn();
+      if (G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && G.entChoicesCount === 0 && !G.pendingLandmarkRemoval) events.endTurn();
     },
 
     moveUnit: ({ G, ctx, events }, { fromRegionId, toRegionId }: { fromRegionId: string, toRegionId: string }) => {
@@ -436,7 +436,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
       if (to.units[enemySide] > 0) to.units[enemySide]--; else to.units[playerSide]++;
       G.pendingMovementsCount--;
-      if (G.pendingMovementsCount === 0 && G.pendingRemovalCount === 0 && G.entChoicesCount === 0 && !G.pendingFortressRemoval) events.endTurn();
+      if (G.pendingMovementsCount === 0 && G.pendingRemovalCount === 0 && G.entChoicesCount === 0 && !G.pendingLandmarkRemoval) events.endTurn();
     },
 
     takeDiscardCard: ({ G, ctx, events }, cardId: string) => {
@@ -449,7 +449,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
         player.cards.push(cardId);
         G.pendingDiscardTake = false;
         G.log.push(`${playerSide} retrieved ${G.cardPool[cardId].name} from discard`);
-        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingFortressRemoval) {
+        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingLandmarkRemoval) {
             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
         }
     },
@@ -465,30 +465,34 @@ export const DuelForMiddleEarth: Game<GameState> = {
         G.discardPile.push(cardId);
         G.pendingGreyRemoval = false;
         G.log.push(`${playerSide} removed ${G.cardPool[cardId].name} from ${enemySide}`);
-        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingFortressRemoval) {
+        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingLandmarkRemoval) {
             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
         }
     },
 
-    removeFortress: ({ G, ctx, events }, regionId: string) => {
-        if (!G.pendingFortressRemoval) return INVALID_MOVE;
-        const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
-        const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
-        const region = G.map[regionId];
-        if (!region || !region.hasFortress[enemySide]) return INVALID_MOVE;
-        
-        region.hasFortress[enemySide] = false;
-        G.pendingFortressRemoval = false;
-        G.log.push(`${playerSide} removed ${enemySide} fortress from ${region.name}`);
-        
-        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingDiscardTake && !G.pendingGreyRemoval && G.entChoicesCount === 0) {
-            if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
-        }
-    },
+     removeLandmark: ({ G, ctx, events }, landmarkId: string) => {
+         if (!G.pendingLandmarkRemoval) return INVALID_MOVE;
+         const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
+         const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
+         const landmark = G.landmarks.find(l => l.id === landmarkId);
+         if (!landmark || landmark.builtBy !== enemySide) return INVALID_MOVE;
+         
+         landmark.builtBy = null;
+         const player = G.players[enemySide];
+         const landmarkIdx = player.builtLandmarks.indexOf(landmarkId);
+         if (landmarkIdx !== -1) player.builtLandmarks.splice(landmarkIdx, 1);
+         G.map[landmark.regionId].hasFortress[enemySide] = false;
+         G.pendingLandmarkRemoval = false;
+         G.log.push(`${playerSide} removed ${enemySide} landmark: ${landmark.name}`);
+         
+         if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingDiscardTake && !G.pendingGreyRemoval && G.entChoicesCount === 0) {
+             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
+         }
+     },
 
     skipPendingActions: ({ G, events }) => {
       G.pendingPlacement = null; G.pendingPlacementCount = 0; G.pendingRemovalCount = 0;
-      G.pendingMovementsCount = 0; G.entChoicesCount = 0; G.pendingRacePick = null; G.pendingFortressRemoval = false;
+      G.pendingMovementsCount = 0; G.entChoicesCount = 0; G.pendingRacePick = null; G.pendingLandmarkRemoval = false;
       G.pendingGreyRemoval = false; G.pendingDiscardTake = false;
       events.endTurn();
     },

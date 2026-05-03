@@ -100,8 +100,8 @@ export interface GameState {
   pendingDiscardTake: boolean;
   pendingRacePick: 'DUPLICATE' | 'UNIQUE_3' | 'GREY_HAVENS_CHOOSE_RACE' | 'GREY_HAVENS_PICK_TILE' | null;
   pendingRaceSelectionPool: RaceTile[];
-  pendingGreyRemoval: boolean;
-  pendingFortressRemoval: boolean;
-  entChoicesCount: number;
-  extraTurn: boolean;
-}
+   pendingGreyRemoval: boolean;
+   pendingLandmarkRemoval: boolean;
+   entChoicesCount: number;
+   extraTurn: boolean;
+ }
