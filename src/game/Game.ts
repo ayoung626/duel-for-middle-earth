@@ -509,6 +509,14 @@ export const DuelForMiddleEarth: Game<GameState> = {
         if (Object.values(G.map).filter(r => r.units[side] > 0 || r.hasFortress[side]).length === 7) return { winner: side, reason: 'Conquering Middle-earth' };
       }
     }
+    // End of Chapter 3 with no cards remaining: determine winner by regional presence
+    if (G.currentChapter === 3 && G.pyramid.every(row => row.every(slot => slot.cardId === null))) {
+      const fellowshipRegions = Object.values(G.map).filter(r => r.units.FELLOWSHIP > 0 || r.hasFortress.FELLOWSHIP).length;
+      const sauronRegions = Object.values(G.map).filter(r => r.units.SAURON > 0 || r.hasFortress.SAURON).length;
+      if (fellowshipRegions > sauronRegions) return { winner: 'FELLOWSHIP', reason: 'Regional Presence' };
+      if (sauronRegions > fellowshipRegions) return { winner: 'SAURON', reason: 'Regional Presence' };
+      return { winner: 'TIE', reason: 'Equal Regional Presence' };
+    }
     return undefined;
   },
 };
