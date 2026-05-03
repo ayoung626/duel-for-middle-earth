@@ -379,8 +379,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
       <div className="flex-1 min-h-0 grid grid-cols-12 gap-4 relative">
         
         {/* Map-based Action Banner (Non-blocking) */}
-        {isMapAction && !isModalAction && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 border border-red-400 px-8 py-3 rounded-full shadow-2xl z-50 animate-bounce pointer-events-none flex flex-col items-center">
+         {isMapAction && !isModalAction && (
+           <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 border border-red-400 px-8 py-3 rounded-full shadow-2xl z-50 pointer-events-none flex flex-col items-center">
               <h2 className="font-black tracking-widest text-xs uppercase text-white shadow-sm">
                   {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNITS`}
                   {isPendingRemoval && `REMOVE ${G.pendingRemovalCount} ENEMY UNITS`}
@@ -469,7 +469,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                         )}
                     >
                        <div className="flex justify-between items-start mb-1">
-                           <div className="text-[8px] font-black uppercase text-yellow-500">{l.name}</div>
+                           <div className="text-[8px] font-black uppercase text-yellow-500">{G.map[l.regionId]?.name}: {l.name}</div>
                            <div className="flex gap-0.5 flex-wrap justify-end w-12">
                               {l.cost.map((s, i) => (
                                  <div key={i} className="bg-stone-200 rounded-full w-2.5 h-2.5 flex items-center justify-center p-[1px] shadow-sm">
@@ -487,8 +487,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
         </div>
 
         {/* Pyramid Center */}
-        <div className="col-span-7 flex flex-col items-center justify-center p-2 bg-stone-950/40 rounded-2xl border border-stone-800/40 shadow-inner h-full relative overflow-y-auto">
-          <div className="flex flex-col items-center mx-auto py-4">
+         <div className="col-span-7 flex flex-col items-center p-2 bg-stone-950/40 rounded-2xl border border-stone-800/40 shadow-inner h-full relative overflow-y-auto">
+           <div className="flex flex-col items-center mx-auto pt-4 pb-8">
               {G.pyramid.map((row, rowIndex) => (
                   <div key={rowIndex} className="flex gap-3 mb-[-24px] relative" style={{ zIndex: rowIndex }}>
                       {row.map((slot, colIndex) => {
@@ -536,14 +536,20 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
         </div>
       </div>
 
-      {/* Bottom Separation - Players */}
-      <div className="flex justify-between items-center shrink-0 pt-1 border-t border-stone-800">
-         {renderPlayerPanel('FELLOWSHIP')}
-         <div className="text-center opacity-10">
-            <h1 className="text-lg font-black tracking-[0.3em] text-stone-600 uppercase">Middle-earth</h1>
-         </div>
-         {renderPlayerPanel('SAURON')}
-      </div>
+       {/* Bottom Separation - Players */}
+       <div className="flex justify-between items-start shrink-0 pt-1 border-t border-stone-800 gap-2">
+          {renderPlayerPanel('FELLOWSHIP')}
+          <div className="flex-1 max-w-md mx-2 mt-1">
+             <div className="bg-stone-900/60 rounded-lg border border-stone-700 p-1.5 h-24 overflow-y-auto">
+                <div className="flex flex-col gap-0.5">
+                   {G.log.slice(-6).reverse().map((entry, i) => (
+                      <div key={i} className="text-[8px] text-stone-400 font-mono leading-tight truncate">{entry}</div>
+                   ))}
+                </div>
+             </div>
+          </div>
+          {renderPlayerPanel('SAURON')}
+       </div>
 
       {/* MODAL OVERLAYS (Only for self-contained choices) */}
       {isModalAction && (
@@ -690,7 +696,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
           <div className="bg-stone-800 border-2 border-stone-600 rounded-3xl p-8 flex flex-col items-center max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="w-full text-center mb-6">
                <Tower className="mx-auto mb-4 text-yellow-500" size={48} />
-               <h2 className="text-2xl font-black uppercase tracking-widest text-yellow-500 mb-2">{selectedLandmark.name}</h2>
+                <h2 className="text-2xl font-black uppercase tracking-widest text-yellow-500 mb-2">{G.map[selectedLandmark.regionId]?.name}: {selectedLandmark.name}</h2>
                <div className="bg-black/30 p-3 rounded-xl border border-stone-700 shadow-inner">
                   <p className="text-xs text-stone-300 leading-relaxed italic">{selectedLandmark.description}</p>
                </div>
@@ -727,7 +733,23 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
+       )}
+
+       {/* Game Over Screen */}
+       {ctx.gameover && (
+         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center backdrop-blur-lg">
+            <div className="text-center">
+               <div className={clsx(
+                 "text-6xl font-black mb-4 uppercase tracking-widest",
+                 ctx.gameover.winner === 'FELLOWSHIP' ? "text-yellow-500" : "text-red-500"
+               )}>
+                 {ctx.gameover.winner} Wins!
+               </div>
+               <div className="text-xl text-stone-300 mb-8">{ctx.gameover.reason}</div>
+               <div className="text-sm text-stone-500">Game Over</div>
+            </div>
+         </div>
+       )}
+     </div>
+   );
 };
