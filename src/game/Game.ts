@@ -330,7 +330,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
               case 't-ent-2': if (G.landmarks.some(l => l.builtBy !== null && l.builtBy !== playerSide)) G.pendingLandmarkRemoval = true; break;
               case 't-wiz-1': advanceQuestTrack(G, playerSide, 2); break;
               case 't-wiz-2': if (G.discardPile.length > 0) G.pendingDiscardTake = true; break;
-              case 't-wiz-3': G.pendingPlacement = Object.keys(G.map); G.pendingPlacementCount = 2; break;
+              case 't-wiz-3': G.pendingPlacement = Object.keys(G.map); G.pendingPlacementCount = 2; G.pendingPlacementOneAtATime = true; break;
               case 't-ent-3': G.entChoicesCount = 3; break;
           }
       }
@@ -347,18 +347,28 @@ export const DuelForMiddleEarth: Game<GameState> = {
       const playerSide = ctx.currentPlayer === '0' ? 'SAURON' : 'FELLOWSHIP';
       const enemySide = playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP';
       
-      const totalUnits = G.pendingPlacementCount;
-      for (let i = 0; i < totalUnits; i++) {
+      if (G.pendingPlacementOneAtATime) {
+        if (region.units[enemySide] > 0) {
+          region.units[enemySide]--;
+        } else {
+          region.units[playerSide]++;
+        }
+        G.pendingPlacementCount--;
+        G.log.push(`${playerSide} placed 1 unit in ${region.name} (${G.pendingPlacementCount} remaining)`);
+        if (G.pendingPlacementCount === 0) G.pendingPlacement = null;
+      } else {
+        const totalUnits = G.pendingPlacementCount;
+        for (let i = 0; i < totalUnits; i++) {
           if (region.units[enemySide] > 0) {
             region.units[enemySide]--;
           } else {
             region.units[playerSide]++;
           }
+        }
+        G.log.push(`${playerSide} placed ${totalUnits} unit(s) in ${region.name}`);
+        G.pendingPlacementCount = 0;
+        G.pendingPlacement = null;
       }
-
-      G.log.push(`${playerSide} placed ${totalUnits} unit(s) in ${region.name}`);
-      G.pendingPlacementCount = 0;
-      G.pendingPlacement = null;
 
       const hasFollowUp = G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || !!G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.entChoicesCount > 0 || G.pendingLandmarkRemoval;
 
@@ -580,7 +590,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
      },
 
     skipPendingActions: ({ G, events }) => {
-      G.pendingPlacement = null; G.pendingPlacementCount = 0; G.pendingRemovalCount = 0;
+      G.pendingPlacement = null; G.pendingPlacementCount = 0; G.pendingPlacementOneAtATime = false; G.pendingRemovalCount = 0;
       G.pendingMovementsCount = 0; G.entChoicesCount = 0; G.pendingRacePick = null; G.pendingLandmarkRemoval = false;
       G.pendingGreyRemoval = false; G.pendingDiscardTake = false;
       events.endTurn();

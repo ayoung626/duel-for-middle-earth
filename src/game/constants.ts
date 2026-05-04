@@ -148,6 +148,7 @@ export const INITIAL_STATE: GameState = {
   log: ['Game started'],
   pendingPlacement: null,
   pendingPlacementCount: 0,
+  pendingPlacementOneAtATime: false,
   pendingRemovalCount: 0,
   pendingMovementsCount: 0,
   pendingDiscardTake: false,

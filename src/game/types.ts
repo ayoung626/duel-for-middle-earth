@@ -95,6 +95,7 @@ export interface GameState {
   log: string[];
   pendingPlacement: string[] | null;
   pendingPlacementCount: number;
+  pendingPlacementOneAtATime: boolean;
   pendingRemovalCount: number;
   pendingMovementsCount: number;
   pendingDiscardTake: boolean;
