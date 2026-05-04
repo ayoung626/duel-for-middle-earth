@@ -407,7 +407,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
          {isMapAction && !isModalAction && (
            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 border border-red-400 px-8 py-3 rounded-full shadow-2xl z-50 pointer-events-none flex flex-col items-center">
               <h2 className="font-black tracking-widest text-xs uppercase text-white shadow-sm">
-        {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNITS`}
+                   {isPendingPlacement && `DEPLOY ${G.pendingPlacementCount} UNIT${G.pendingPlacementCount > 1 ? 'S' : ''}`}
                    {isPendingRemoval && `REMOVE ${G.pendingRemovalCount} ENEMY UNITS`}
                    {isPendingMovement && `MANEUVER ${G.pendingMovementsCount} TROOPS`}
                    {isPendingLandmarkRemoval && `DESTROY ENEMY LANDMARK`}
