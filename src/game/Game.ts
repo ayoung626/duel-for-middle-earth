@@ -177,10 +177,14 @@ const advanceQuestTrack = (G: GameState, side: Side, amount: number) => {
     G.extraTurn = true;
     G.log.push(`${side} reached Ring space 9: extra turn`);
   }
-   if (oldVal < 12 && newVal >= 12) {
-     G.pendingLandmarkRemoval = true;
-     G.log.push(`${side} reached Ring space 12: remove enemy landmark`);
-   }
+  if (oldVal < 12 && newVal >= 12) {
+    if (G.landmarks.some(l => l.builtBy !== null && l.builtBy !== side)) {
+      G.pendingLandmarkRemoval = true;
+      G.log.push(`${side} reached Ring space 12: remove enemy landmark`);
+    } else {
+      G.log.push(`${side} reached Ring space 12: no enemy landmark to remove`);
+    }
+  }
 };
 
 const checkChapterEnd = (G: GameState) => {
@@ -323,6 +327,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
       if (tile.effectType === 'IMMEDIATE') {
           switch(tile.id) {
               case 't-ent-1': G.extraTurn = true; break;
+              case 't-ent-2': if (G.landmarks.some(l => l.builtBy !== null && l.builtBy !== playerSide)) G.pendingLandmarkRemoval = true; break;
               case 't-wiz-1': advanceQuestTrack(G, playerSide, 2); break;
               case 't-wiz-2': if (G.discardPile.length > 0) G.pendingDiscardTake = true; break;
               case 't-wiz-3': G.pendingPlacement = Object.keys(G.map); G.pendingPlacementCount = 2; break;
@@ -477,11 +482,13 @@ export const DuelForMiddleEarth: Game<GameState> = {
          const landmark = G.landmarks.find(l => l.id === landmarkId);
          if (!landmark || landmark.builtBy !== enemySide) return INVALID_MOVE;
          
-         landmark.builtBy = null;
-         const player = G.players[enemySide];
-         const landmarkIdx = player.builtLandmarks.indexOf(landmarkId);
-         if (landmarkIdx !== -1) player.builtLandmarks.splice(landmarkIdx, 1);
-         G.map[landmark.regionId].hasFortress[enemySide] = false;
+          landmark.builtBy = null;
+          const availableIdx = G.availableLandmarks.indexOf(landmarkId);
+          if (availableIdx !== -1) G.availableLandmarks.splice(availableIdx, 1);
+          const player = G.players[enemySide];
+          const landmarkIdx = player.builtLandmarks.indexOf(landmarkId);
+          if (landmarkIdx !== -1) player.builtLandmarks.splice(landmarkIdx, 1);
+          G.map[landmark.regionId].hasFortress[enemySide] = false;
          G.pendingLandmarkRemoval = false;
          G.log.push(`${playerSide} removed ${enemySide} landmark: ${landmark.name}`);
          
