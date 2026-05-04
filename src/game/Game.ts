@@ -450,12 +450,72 @@ export const DuelForMiddleEarth: Game<GameState> = {
         const player = G.players[playerSide];
         const cardIdx = G.discardPile.indexOf(cardId);
         if (cardIdx === -1 || !G.cardPool[cardId]) return INVALID_MOVE;
+        const card = G.cardPool[cardId];
         G.discardPile.splice(cardIdx, 1);
-        player.cards.push(cardId);
+
+        // Apply card bonuses
+        if (card.bonus?.coins) player.coins += card.bonus.coins;
+        if (card.bonus?.skills) player.skills.push(...card.bonus.skills);
+        if (card.bonus?.wildSkills) player.wildSkills.push(...card.bonus.wildSkills);
+        
+        let triggerRaceTile = false;
+        if (card.bonus?.race) {
+            const race = card.bonus.race;
+            const isDuplicate = player.races.includes(race);
+            const uniqueBefore = new Set(player.races.filter(r => r !== 'EAGLE')).size;
+            player.races.push(race);
+            const uniqueAfter = new Set(player.races.filter(r => r !== 'EAGLE')).size;
+
+            if (isDuplicate) {
+                G.pendingRacePick = 'DUPLICATE';
+                G.pendingRaceSelectionPool = G.raceTiles[race].splice(0, 2);
+                triggerRaceTile = true;
+            } else if (uniqueAfter === 3 && uniqueBefore < 3) {
+                G.pendingRacePick = 'UNIQUE_3';
+                const pool: RaceTile[] = [];
+                const ownedRaces = Array.from(new Set(player.races.filter(r => r !== 'EAGLE')));
+                ownedRaces.forEach(r => { if (G.raceTiles[r].length > 0) pool.push(G.raceTiles[r].splice(0, 1)[0]); });
+                G.pendingRaceSelectionPool = pool;
+                triggerRaceTile = true;
+            }
+            if (player.tiles.includes('t-dwa-3')) G.pendingMovementsCount += 2;
+        }
+        if (card.bonus?.quest) {
+            advanceQuestTrack(G, playerSide, card.bonus.quest);
+        }
+        if (card.bonus?.removeEnemyCoins) {
+            const enemy = G.players[playerSide === 'FELLOWSHIP' ? 'SAURON' : 'FELLOWSHIP'];
+            const removed = Math.min(enemy.coins, card.bonus.removeEnemyCoins);
+            enemy.coins -= removed;
+            G.log.push(`${playerSide} removed ${removed} coins`);
+        }
+        if (card.type === 'YELLOW') {
+            if (player.tiles.includes('t-hum-2')) { advanceQuestTrack(G, playerSide, 1); }
+            if (player.tiles.includes('t-elf-1')) G.extraTurn = true;
+        }
+        player.cards.push(card.id);
         G.pendingDiscardTake = false;
-        G.log.push(`${playerSide} retrieved ${G.cardPool[cardId].name} from discard`);
-        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingLandmarkRemoval) {
-            if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
+        G.log.push(`${playerSide} played ${card.name} from discard`);
+
+        if (card.bonus?.placement) {
+            let count = card.bonus.placementCount || 1;
+            if (player.tiles.includes('t-hum-3')) count++;
+            if (!G.pendingPlacement) G.pendingPlacement = [];
+            G.pendingPlacement = Array.from(new Set([...G.pendingPlacement, ...(player.tiles.includes('t-elf-2') ? Object.keys(G.map) : card.bonus.placement)]));
+            G.pendingPlacementCount += count;
+        }
+        if (card.bonus?.removeEnemyUnits) G.pendingRemovalCount += card.bonus.removeEnemyUnits;
+        if (card.bonus?.movements) G.pendingMovementsCount += card.bonus.movements;
+        if (card.type === 'BLUE' && player.tiles.includes('t-hob-1')) { 
+            if (!G.pendingPlacement) G.pendingPlacement = Object.keys(G.map);
+            else G.pendingPlacement = Object.keys(G.map);
+            G.pendingPlacementCount++; 
+        }
+
+        const hasFollowUp = G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || triggerRaceTile || G.pendingLandmarkRemoval || G.pendingGreyRemoval || G.entChoicesCount > 0;
+        if (!hasFollowUp) {
+            if (G.extraTurn) { G.extraTurn = false; G.log.push(`${playerSide} extra turn!`); }
+            else events.endTurn();
         }
     },
 
