@@ -526,10 +526,32 @@ export const DuelForMiddleEarth: Game<GameState> = {
         const enemy = G.players[enemySide];
         const cardIdx = enemy.cards.indexOf(cardId);
         if (cardIdx === -1 || !G.cardPool[cardId] || G.cardPool[cardId].type !== 'GREY') return INVALID_MOVE;
+        const card = G.cardPool[cardId];
+        
+        // Reverse card bonuses
+        if (card.bonus?.skills) {
+            const skillsToRemove = [...card.bonus.skills];
+            for (const s of skillsToRemove) {
+                const idx = enemy.skills.indexOf(s);
+                if (idx !== -1) enemy.skills.splice(idx, 1);
+            }
+        }
+        if (card.bonus?.wildSkills) {
+            const wildsToRemove = [...card.bonus.wildSkills];
+            for (const w of wildsToRemove) {
+                const idx = enemy.wildSkills.findIndex(ew => ew.every((es, i) => es === w[i] && ew.length === w.length));
+                if (idx !== -1) enemy.wildSkills.splice(idx, 1);
+            }
+        }
+        if (card.bonus?.race) {
+            const raceIdx = enemy.races.indexOf(card.bonus.race);
+            if (raceIdx !== -1) enemy.races.splice(raceIdx, 1);
+        }
+        
         enemy.cards.splice(cardIdx, 1);
         G.discardPile.push(cardId);
         G.pendingGreyRemoval = false;
-        G.log.push(`${playerSide} removed ${G.cardPool[cardId].name} from ${enemySide}`);
+        G.log.push(`${playerSide} removed ${card.name} from ${enemySide}`);
         if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingLandmarkRemoval && !G.pendingDiscardTake && G.entChoicesCount === 0) {
             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
         }
