@@ -470,7 +470,7 @@ export const DuelForMiddleEarth: Game<GameState> = {
         G.discardPile.push(cardId);
         G.pendingGreyRemoval = false;
         G.log.push(`${playerSide} removed ${G.cardPool[cardId].name} from ${enemySide}`);
-        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingLandmarkRemoval) {
+        if (G.pendingPlacementCount === 0 && G.pendingRemovalCount === 0 && G.pendingMovementsCount === 0 && !G.pendingRacePick && !G.pendingLandmarkRemoval && !G.pendingDiscardTake && G.entChoicesCount === 0) {
             if (G.extraTurn) { G.extraTurn = false; } else events.endTurn();
         }
     },

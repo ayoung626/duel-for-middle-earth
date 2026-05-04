@@ -310,15 +310,40 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
            </div>
         </div>
 
-        {/* Skills (circles) */}
-        <div className="flex flex-wrap gap-1 mt-auto justify-center bg-black/30 p-1.5 rounded-lg border border-white/5 min-h-[28px]">
-           {p.skills.map((s, i) => (
-             <div key={i} className="bg-stone-200 rounded-full w-5 h-5 flex items-center justify-center shadow-inner border border-stone-400">
-                {getSkillIcon(s as SkillSymbol, 14)}
-             </div>
-           ))}
-           {p.skills.length === 0 && <span className="text-[6px] text-stone-500 uppercase font-black m-auto tracking-widest">Skills</span>}
-        </div>
+         {/* Skills (grouped by card + wild skills) */}
+         <div className="flex flex-wrap gap-2 mt-auto justify-center bg-black/30 p-1.5 rounded-lg border border-white/5 min-h-[28px]">
+            {p.cards.map((cId, ci) => {
+              const card = G.cardPool[cId];
+              if (!card?.bonus?.skills?.length && !card?.bonus?.wildSkills?.length) return null;
+              return (
+                <div key={ci} className={clsx(
+                  "flex gap-0.5 px-1 py-0.5 rounded border border-white/10 bg-white/5",
+                  card.type === 'GREY' ? "border-stone-500" : getCardColorClass(card.type).split(' ')[0]
+                )}>
+                  {card.bonus?.skills?.map((s, si) => (
+                    <div key={si} className="bg-stone-200 rounded-full w-5 h-5 flex items-center justify-center shadow-inner border border-stone-400">
+                      {getSkillIcon(s as SkillSymbol, 14)}
+                    </div>
+                  ))}
+                  {card.bonus?.wildSkills?.map((w, wi) => (
+                    <div key={`w${wi}`} className="bg-gradient-to-r from-purple-400 to-pink-400 rounded-full w-5 h-5 flex items-center justify-center shadow-inner border border-purple-500" title={`Wild: ${w.join('/')}`}>
+                      <span className="text-[8px] font-black text-white">?</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+            {p.wildSkills.length > 0 && (
+              <div className="flex gap-0.5 px-1 py-0.5 rounded border border-purple-500 bg-purple-900/30">
+                {p.wildSkills.map((w, wi) => (
+                  <div key={`pw${wi}`} className="bg-gradient-to-r from-purple-400 to-pink-400 rounded-full w-5 h-5 flex items-center justify-center shadow-inner border border-purple-500" title={`Wild: ${w.join('/')}`}>
+                    <span className="text-[8px] font-black text-white">?</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {p.cards.length === 0 && <span className="text-[6px] text-stone-500 uppercase font-black m-auto tracking-widest">Skills</span>}
+         </div>
       </div>
     );
   };
