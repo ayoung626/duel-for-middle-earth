@@ -251,6 +251,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
   const renderPlayerPanel = (side: Side) => {
     const p = G.players[side];
     const chains = Array.from(new Set(p.cards.map(cId => G.cardPool[cId]?.chainingSymbol).filter(Boolean)));
+    const regionsPresent = Object.values(G.map).filter(r => r.units[side] > 0 || r.hasFortress[side]).length;
+    const distinctRacesCount = new Set(p.races).size;
     const isActive = currentPlayerSide === side;
 
     return (
@@ -266,6 +268,24 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
            <div className="flex items-center gap-1 text-lg font-mono font-black bg-black/40 px-2 py-0.5 rounded-full border border-yellow-900/50">
               {p.coins} <Coins className="text-yellow-500" size={14} />
            </div>
+        </div>
+        
+        {/* Indicators */}
+        <div className="flex flex-col gap-1 text-[10px] bg-black/20 p-2 rounded-lg border border-white/5">
+          <div className="flex items-center gap-2">
+            <span className="w-16 uppercase font-bold text-stone-400">Regions</span>
+            <div className="flex-1 bg-black/40 h-2 rounded-full overflow-hidden flex">
+              <div className={clsx("h-full", side === 'FELLOWSHIP' ? "bg-yellow-600" : "bg-red-600")} style={{ width: `${(regionsPresent / 7) * 100}%` }}></div>
+            </div>
+            <span className="font-bold w-6 text-right">{regionsPresent}/7</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-16 uppercase font-bold text-stone-400">Races</span>
+            <div className="flex-1 bg-black/40 h-2 rounded-full overflow-hidden flex">
+              <div className={clsx("h-full", side === 'FELLOWSHIP' ? "bg-yellow-600" : "bg-red-600")} style={{ width: `${(distinctRacesCount / 6) * 100}%` }}></div>
+            </div>
+            <span className="font-bold w-6 text-right">{distinctRacesCount}/6</span>
+          </div>
         </div>
 
         <div className="flex justify-between items-start mt-1 gap-2">
