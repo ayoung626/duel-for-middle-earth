@@ -581,12 +581,16 @@ export const DuelForMiddleEarth: Game<GameState> = {
       }
     }
     // End of Chapter 3 with no cards remaining: determine winner by regional presence
+    // Only trigger after all pending actions from the last card are resolved
     if (G.currentChapter === 3 && G.pyramid.every(row => row.every(slot => slot.cardId === null))) {
-      const fellowshipRegions = Object.values(G.map).filter(r => r.units.FELLOWSHIP > 0 || r.hasFortress.FELLOWSHIP).length;
-      const sauronRegions = Object.values(G.map).filter(r => r.units.SAURON > 0 || r.hasFortress.SAURON).length;
-      if (fellowshipRegions > sauronRegions) return { winner: 'FELLOWSHIP', reason: 'Regional Presence' };
-      if (sauronRegions > fellowshipRegions) return { winner: 'SAURON', reason: 'Regional Presence' };
-      return { winner: 'TIE', reason: 'Equal Regional Presence' };
+      const hasPending = G.pendingPlacement || G.pendingPlacementCount > 0 || G.pendingRemovalCount > 0 || G.pendingMovementsCount > 0 || G.pendingRacePick || G.pendingDiscardTake || G.pendingGreyRemoval || G.pendingLandmarkRemoval || G.entChoicesCount > 0;
+      if (!hasPending) {
+        const fellowshipRegions = Object.values(G.map).filter(r => r.units.FELLOWSHIP > 0 || r.hasFortress.FELLOWSHIP).length;
+        const sauronRegions = Object.values(G.map).filter(r => r.units.SAURON > 0 || r.hasFortress.SAURON).length;
+        if (fellowshipRegions > sauronRegions) return { winner: 'FELLOWSHIP', reason: 'Regional Presence' };
+        if (sauronRegions > fellowshipRegions) return { winner: 'SAURON', reason: 'Regional Presence' };
+        return { winner: 'TIE', reason: 'Equal Regional Presence' };
+      }
     }
     return undefined;
   },
