@@ -13,13 +13,13 @@ import { FaRing, FaMale, FaUndo, FaDragon, FaHorse } from 'react-icons/fa';
 import { GiSmokingPipe, GiVisoredHelm } from 'react-icons/gi';
 
 const MAP_COORDS: Record<string, { x: number, y: number }> = {
-  LINDON: { x: 20, y: 25 },
-  ARNOR: { x: 45, y: 15 },
-  ENEDWAITH: { x: 35, y: 45 },
-  RHOVANION: { x: 75, y: 25 },
-  ROHAN: { x: 60, y: 45 },
-  GONDOR: { x: 50, y: 65 },
-  MORDOR: { x: 80, y: 60 },
+  LINDON: { x: 14, y: 26 },
+  ARNOR: { x: 40.5, y: 19 },
+  ENEDWAITH: { x: 36, y: 52 },
+  RHOVANION: { x: 77, y: 26.5 },
+  ROHAN: { x: 64, y: 55.5 },
+  GONDOR: { x: 51.5, y: 79.5 },
+  MORDOR: { x: 86.5, y: 77 },
 };
 
 const MAP_CONNECTIONS: [string, string][] = [
@@ -442,28 +442,58 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
           </div>
         )}
 
-        {/* Visual Map Area */}
-        <div className="col-span-5 bg-[#c8b696] rounded-xl border-4 border-[#5c4a3d] flex flex-col relative shadow-inner overflow-hidden" style={{ backgroundImage: 'radial-gradient(#8b7355 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
-           <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-40">
-               {MAP_CONNECTIONS.map(([a, b]) => (
-                   <line key={`${a}-${b}`} x1={`${MAP_COORDS[a].x}%`} y1={`${MAP_COORDS[a].y}%`} x2={`${MAP_COORDS[b].x}%`} y2={`${MAP_COORDS[b].y}%`} stroke="#5c4a3d" strokeWidth="4" strokeLinecap="round" />
-               ))}
-           </svg>
-           
-             {Object.values(G.map).map(region => {
+        {/* Map & Landmarks Column */}
+        <div className="col-span-5 flex flex-col gap-3 h-full min-h-0">
+          {/* Visual Map Area */}
+          <div 
+            className="flex-1 rounded-xl border-4 border-[#5c4a3d] flex flex-col relative shadow-inner overflow-hidden animate-fade-in cursor-crosshair min-h-0" 
+            style={{ 
+              backgroundImage: "radial-gradient(circle, transparent 20%, rgba(28, 25, 23, 0.45) 100%), url('/map.jpeg')", 
+              backgroundSize: '100% 100%',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat'
+            }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = parseFloat((((e.clientX - rect.left) / rect.width) * 100).toFixed(1));
+              const y = parseFloat((((e.clientY - rect.top) / rect.height) * 100).toFixed(1));
+              console.log(`Clicked coordinates: x: ${x}, y: ${y}`);
+            }}
+          >
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-50">
+                {MAP_CONNECTIONS.map(([a, b]) => (
+                    <line 
+                      key={`${a}-${b}`} 
+                      x1={`${MAP_COORDS[a].x}%`} 
+                      y1={`${MAP_COORDS[a].y}%`} 
+                      x2={`${MAP_COORDS[b].x}%`} 
+                      y2={`${MAP_COORDS[b].y}%`} 
+                      stroke="#7a5f45" 
+                      strokeWidth="3.5" 
+                      strokeLinecap="round" 
+                      strokeDasharray="5,4" 
+                    />
+                ))}
+            </svg>
+            
+            {Object.values(G.map).map(region => {
                const isHighlighted = (isPendingPlacement && G.pendingPlacement?.includes(region.id)) || 
                                       (isPendingRemoval && region.units[enemySide] > 0) ||
                                       (isPendingMovement && (!moveSourceRegionId ? region.units[currentPlayerSide] > 0 : G.map[moveSourceRegionId].adjacent.includes(region.id)));
 
-             const coords = MAP_COORDS[region.id];
+            const coords = MAP_COORDS[region.id];
 
-             return (
-              <div key={region.id} className="absolute flex items-center gap-1 -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${coords.x}%`, top: `${coords.y}%` }}>
+            return (
+             <div key={region.id} className="absolute flex items-center gap-1 -translate-x-1/2 -translate-y-1/2 z-10" style={{ left: `${coords.x}%`, top: `${coords.y}%` }}>
                  <div 
-                   onClick={() => handleRegionClick(region.id)}
+                   onClick={(e) => { e.stopPropagation(); handleRegionClick(region.id); }}
                    className={clsx(
-                     "w-24 p-1 rounded border-2 transition-all cursor-pointer relative shadow-lg",
-                     isHighlighted ? "ring-4 ring-red-600 bg-[#e8d6b6] border-red-800 scale-110 z-20" : moveSourceRegionId === region.id ? "ring-4 ring-yellow-400 bg-[#e8d6b6] border-yellow-700 scale-110 z-20" : "bg-[#dfcdab] border-[#8b7355] hover:bg-[#e8d6b6] hover:scale-105"
+                     "w-24 p-1 rounded border-2 transition-all cursor-pointer relative shadow-lg backdrop-blur-[2px]",
+                     isHighlighted 
+                       ? "ring-4 ring-red-600 bg-red-100/95 border-red-800 scale-110 z-20 shadow-2xl" 
+                       : moveSourceRegionId === region.id 
+                         ? "ring-4 ring-yellow-400 bg-yellow-100/95 border-yellow-700 scale-110 z-20 shadow-2xl" 
+                         : "bg-[#dfcdab]/90 border-[#8b7355] hover:bg-[#e8d6b6] hover:scale-105"
                    )}
                  >
                     <div className="flex justify-between items-center mb-1 border-b border-[#a89375] pb-0.5">
@@ -488,46 +518,47 @@ export const GameBoard: React.FC<GameBoardProps> = ({ G, ctx, moves }) => {
                     </div>
                  </div>
               </div>
-             );
-           })}
-           
-           {/* Floating Landmarks */}
-           <div className="absolute bottom-2 left-2 right-2 bg-stone-900/80 backdrop-blur-sm p-2 rounded-xl border border-stone-600 z-30 flex flex-col gap-1 shadow-2xl">
-              <h4 className="text-[7px] font-black text-stone-400 uppercase tracking-widest mb-1 pl-1">Available Landmarks</h4>
-              <div className="flex gap-2 justify-center">
-                {G.availableLandmarks.map(id => {
-                  const l = G.landmarks.find(landmark => landmark.id === id);
-                  if (!l || l.builtBy !== null) return null;
-                  
-                  const cost = calculateLandmarkCost(l, G.players[currentPlayerSide]);
-                  const canAfford = canAffordLandmark(l, G.players[currentPlayerSide]);
+            );
+            })}
+          </div>
+          
+          {/* Landmarks Tray */}
+          <div className="bg-stone-900/80 backdrop-blur-sm p-2 rounded-xl border border-stone-700 flex flex-col gap-1 shadow-lg shrink-0">
+             <h4 className="text-[7px] font-black text-stone-400 uppercase tracking-widest mb-1 pl-1">Available Landmarks</h4>
+             <div className="flex gap-2 justify-center">
+               {G.availableLandmarks.map(id => {
+                 const l = G.landmarks.find(landmark => landmark.id === id);
+                 if (!l || l.builtBy !== null) return null;
+                 
+                 const cost = calculateLandmarkCost(l, G.players[currentPlayerSide]);
+                 const canAfford = canAffordLandmark(l, G.players[currentPlayerSide]);
 
-                  return (
-                    <button 
-                        key={l.id} 
-                        disabled={hasAnyPending || !canAfford}
-                        onClick={() => setSelectedLandmark(l)} 
-                        className={clsx(
-                            "flex-1 p-1.5 bg-stone-800 border rounded transition-all text-left flex flex-col justify-between",
-                            hasAnyPending ? "opacity-30 border-stone-700 cursor-not-allowed" : canAfford ? "border-yellow-600 hover:bg-stone-700 shadow-md" : "border-stone-700 opacity-60 hover:bg-stone-800"
-                        )}
-                    >
-                       <div className="flex justify-between items-start mb-1">
-                           <div className="text-[8px] font-black uppercase text-yellow-500">{G.map[l.regionId]?.name}: {l.name}</div>
-                           <div className="flex gap-0.5 flex-wrap justify-end w-12">
-                              {l.cost.map((s, i) => (
-                                 <div key={i} className="bg-stone-200 rounded-full w-2.5 h-2.5 flex items-center justify-center p-[1px] shadow-sm">
-                                    {getSkillIcon(s, 6)}
-                                 </div>
-                              ))}
-                           </div>
-                       </div>
-                       <div className="text-[5px] text-stone-400 leading-tight line-clamp-2">{l.description}</div>
-                    </button>
-                  )
-                })}
-              </div>
-           </div>
+                 return (
+                   <button 
+                       key={l.id} 
+                       disabled={hasAnyPending || !canAfford}
+                       onClick={() => setSelectedLandmark(l)} 
+                       className={clsx(
+                           "flex-1 p-1.5 bg-stone-800 border rounded transition-all text-left flex flex-col justify-between",
+                           hasAnyPending ? "opacity-30 border-stone-700 cursor-not-allowed" : canAfford ? "border-yellow-600 hover:bg-stone-700 shadow-md" : "border-stone-700 opacity-60 hover:bg-stone-800"
+                       )}
+                   >
+                      <div className="flex justify-between items-start mb-1">
+                          <div className="text-[8px] font-black uppercase text-yellow-500">{G.map[l.regionId]?.name}: {l.name}</div>
+                          <div className="flex gap-0.5 flex-wrap justify-end w-12">
+                             {l.cost.map((s, i) => (
+                                <div key={i} className="bg-stone-200 rounded-full w-2.5 h-2.5 flex items-center justify-center p-[1px] shadow-sm">
+                                   {getSkillIcon(s, 6)}
+                                </div>
+                             ))}
+                          </div>
+                      </div>
+                      <div className="text-[5px] text-stone-400 leading-tight line-clamp-2">{l.description}</div>
+                   </button>
+                 )
+               })}
+             </div>
+          </div>
         </div>
 
         {/* Pyramid Center */}
